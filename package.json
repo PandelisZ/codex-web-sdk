@@ -1,0 +1,35 @@
+{
+  "name": "@pandelis/codex-web-sdk-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.0.0-rc.1",
+  "scripts": {
+    "build:upstream": "cargo run -p codex-web-sdk-xtask -- export-upstream --out packages/codex-web-sdk/src/generated/upstream-protocol",
+    "build:wasm": "./scripts/build-wasm.sh",
+    "build:sdk": "node ./scripts/build-sdk.mjs",
+    "build": "pnpm build:upstream && pnpm build:wasm && pnpm build:sdk && pnpm --filter codex-web-sdk-demo build",
+    "dev": "pnpm build:upstream && pnpm build:wasm && pnpm --filter codex-web-sdk-demo dev",
+    "test": "pnpm build:upstream && pnpm build:wasm && pnpm exec vitest run --config vitest.config.ts",
+    "test:demo": "pnpm build:upstream && pnpm build:wasm && pnpm exec vitest run --config vitest.config.ts apps/demo/src/**/*.test.tsx",
+    "playwright:install": "pnpm exec playwright install chromium",
+    "test:e2e": "pnpm build && node ./scripts/demo-e2e.mjs"
+  },
+  "pnpm": {
+    "allowBuilds": {
+      "esbuild": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "happy-dom": "^20.0.4",
+    "playwright": "1.59.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "vitest": "^3.2.4"
+  }
+}

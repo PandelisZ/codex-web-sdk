@@ -1,0 +1,10 @@
+{
+  "name": "codex-web-sdk-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "pnpm exec vitest run --root ../.. --config vitest.config.ts apps/demo/src/**/*.test.tsx"
+  }
+}

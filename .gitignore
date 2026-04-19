@@ -1,0 +1,8 @@
+node_modules
+dist
+target
+coverage
+.DS_Store
+.playwright-cli
+output/playwright/*
+!output/playwright/.gitkeep
