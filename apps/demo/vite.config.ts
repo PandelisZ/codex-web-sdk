@@ -21,12 +21,50 @@ function readApiKey(env: Record<string, string>): string | undefined {
   );
 }
 
+function normalizeBasePath(value?: string): string {
+  if (!value) {
+    return "/";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "/") {
+    return "/";
+  }
+
+  return `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+function resolveBasePath(...envs: Array<Record<string, string>>): string {
+  for (const env of envs) {
+    const candidate = env.VITE_PUBLIC_BASE;
+    if (candidate) {
+      return normalizeBasePath(candidate);
+    }
+  }
+
+  if (process.env.VITE_PUBLIC_BASE) {
+    return normalizeBasePath(process.env.VITE_PUBLIC_BASE);
+  }
+
+  const repository = process.env.GITHUB_REPOSITORY;
+  if (process.env.GITHUB_ACTIONS === "true" && repository) {
+    const [, repoName] = repository.split("/", 2);
+    if (repoName) {
+      return normalizeBasePath(repoName);
+    }
+  }
+
+  return "/";
+}
+
 export default defineConfig(({ mode }) => {
   const demoEnv = loadEnv(mode, demoDir, "");
   const rootEnv = workspaceRoot === demoDir ? {} : loadEnv(mode, workspaceRoot, "");
   const apiKey = readApiKey(demoEnv) || readApiKey(rootEnv) || process.env.OPENAI_API_KEY;
+  const base = resolveBasePath(demoEnv, rootEnv);
 
   return {
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: [

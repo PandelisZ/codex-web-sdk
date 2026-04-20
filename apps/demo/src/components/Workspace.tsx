@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { ChevronLeft, ChevronRight, MessageSquare, PencilLine, Sparkles } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 
 import { createBrowserRuntimeAdapter } from "@pandelis/codex-web-sdk";
 import { useCodexChat } from "@pandelis/codex-web-sdk-react";
@@ -11,7 +11,6 @@ import {
   ChatTranscript,
   EventInspector,
   McpServerList,
-  ToolEditor,
   type ToolEditorValue
 } from "@pandelis/codex-web-sdk-ui";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { BrowserToolEditor } from "./BrowserToolEditor";
+import { DemoSidebar } from "./DemoSidebar";
 
 import {
   createId,
@@ -40,7 +41,7 @@ import {
   writeStoredApiKey,
   type WorkspaceConfig
 } from "../lib/storage";
-import { toolDraftsToDefinitions } from "../lib/toolDrafts";
+import { generateToolSchemaFromDescription, toolDraftsToDefinitions } from "../lib/toolDrafts";
 
 const STARTER_PROMPTS = [
   "Explain the architecture of this SDK workspace.",
@@ -109,6 +110,8 @@ export function Workspace({
   const [presetDraftName, setPresetDraftName] = useState("Workspace preset");
   const [activeInspector, setActiveInspector] = useState<InspectorPanel>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [generatingSchemaForId, setGeneratingSchemaForId] = useState<string | null>(null);
   const [mcpStatuses, setMcpStatuses] = useState<
     Array<{
       serverId: string;
@@ -295,163 +298,89 @@ export function Workspace({
     hasMessages
   });
 
+  const handleGenerateSchema = useCallback(
+    async (toolId: string, description: string) => {
+      setGeneratingSchemaForId(toolId);
+      try {
+        const nextSchema = await generateToolSchemaFromDescription({
+          description,
+          config: {
+            apiKey: apiKey || undefined,
+            baseUrl: chatConfig.baseUrl,
+            headers: chatConfig.headers,
+            model: chatConfig.model ?? DEFAULT_MODEL,
+            reasoning: chatConfig.reasoning,
+            fetch: chatConfig.fetch
+          },
+          wasmUrl
+        });
+
+        setToolDrafts((current) =>
+          current.map((tool) =>
+            tool.id === toolId
+              ? {
+                  ...tool,
+                  inputSchema: nextSchema
+                }
+              : tool
+          )
+        );
+      } finally {
+        setGeneratingSchemaForId(null);
+      }
+    },
+    [apiKey, chatConfig.baseUrl, chatConfig.fetch, chatConfig.headers, chatConfig.model, chatConfig.reasoning, wasmUrl]
+  );
+
+  const handleCreateSession = useCallback(() => {
+    const id = createId("session");
+    onSessionsChange(
+      upsertSessionRecord({
+        id,
+        name: "New session",
+        workspace: workspaceRef.current,
+        chat: null,
+        updatedAt: Date.now()
+      })
+    );
+    window.location.hash = id;
+    setMobileSidebarOpen(false);
+  }, [onSessionsChange]);
+
+  const handleSelectSession = useCallback((sessionId: string, name: string) => {
+    window.location.hash = sessionId;
+    setSessionName(name);
+    setMobileSidebarOpen(false);
+  }, []);
+
+  const handleDeleteSession = useCallback(() => {
+    onSessionsChange(removeSessionRecord(activeSessionId));
+    resetChat();
+    setMobileSidebarOpen(false);
+  }, [activeSessionId, onSessionsChange, resetChat]);
+
+  const handleResetThread = useCallback(() => {
+    resetChat();
+    setMobileSidebarOpen(false);
+  }, [resetChat]);
+
   return (
     <div className={`workspaceShell${sidebarCollapsed ? " sidebarCollapsed" : ""}`}>
       <aside className={`leftRail${sidebarCollapsed ? " collapsed" : ""}`}>
-        <Card className="railShell">
-          <CardHeader className="railShellHeader">
-            <div className="railTopbar">
-              <div>
-                {!sidebarCollapsed ? <p className="eyebrow">Demo</p> : null}
-                {sidebarCollapsed ? (
-                  <CardTitle className="text-[2rem] tracking-tight">C</CardTitle>
-                ) : (
-                  <CardTitle className="text-[2rem] tracking-tight">Codex Chat</CardTitle>
-                )}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="sidebarToggle"
-                onClick={() => setSidebarCollapsed((current) => !current)}
-                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-              </Button>
-            </div>
-            {!sidebarCollapsed ? (
-              <CardDescription className="mt-3 text-sm leading-6">
-                A chat-first demo for the core SDK, React bindings, and headless UI package.
-              </CardDescription>
-            ) : null}
-          </CardHeader>
-
-          <Separator className="railSeparator" />
-
-          <div className="railSection">
-            {!sidebarCollapsed ? (
-              <div className="railHeader">
-                <h2>Chats</h2>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const id = createId("session");
-                    onSessionsChange(
-                      upsertSessionRecord({
-                        id,
-                        name: "New session",
-                        workspace: workspaceRef.current,
-                        chat: null,
-                        updatedAt: Date.now()
-                      })
-                    );
-                    window.location.hash = id;
-                }}
-                aria-label="New chat"
-              >
-                  <PencilLine size={16} />
-                  <span>New</span>
-                </Button>
-              </div>
-            ) : (
-              <div className="railCollapsedActions">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  onClick={() => {
-                    const id = createId("session");
-                    onSessionsChange(
-                      upsertSessionRecord({
-                        id,
-                        name: "New session",
-                        workspace: workspaceRef.current,
-                        chat: null,
-                        updatedAt: Date.now()
-                      })
-                    );
-                    window.location.hash = id;
-                  }}
-                  aria-label="New chat"
-                >
-                  <PencilLine size={16} />
-                </Button>
-              </div>
-            )}
-            <ScrollArea className="railScrollArea">
-              <ul className="stackList">
-                {sessions.map((session) => (
-                  <li key={session.id}>
-                    <button
-                      type="button"
-                      className={session.id === activeSessionId ? "listButton active" : "listButton"}
-                      onClick={() => {
-                        window.location.hash = session.id;
-                        setSessionName(session.name);
-                      }}
-                      title={session.name}
-                    >
-                      {sidebarCollapsed ? (
-                        <span className="listButtonGlyph" aria-hidden="true">
-                          {session.id === activeSessionId ? <Sparkles size={18} /> : <MessageSquare size={18} />}
-                        </span>
-                      ) : (
-                        <>
-                          <span className="listButtonLeading" aria-hidden="true">
-                            {session.id === activeSessionId ? <Sparkles size={16} /> : <MessageSquare size={16} />}
-                          </span>
-                          <span className="listButtonMeta">
-                            <span className="listButtonTitle">{session.name}</span>
-                            <small>{new Date(session.updatedAt).toLocaleTimeString()}</small>
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
-            {!sidebarCollapsed ? (
-              <div className="actionRow">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    onSessionsChange(removeSessionRecord(activeSessionId));
-                    resetChat();
-                  }}
-                >
-                  Delete Session
-                </Button>
-                <Button type="button" variant="outline" onClick={() => resetChat()}>
-                  Reset Thread
-                </Button>
-              </div>
-            ) : null}
-          </div>
-
-          {!sidebarCollapsed ? <Separator className="railSeparator" /> : null}
-
-          {!sidebarCollapsed ? (
-            <div className="railSection railMetaCard">
-              <div className="metaRow">
-                <span>API key</span>
-                <strong>{apiKey ? "Loaded" : "Missing"}</strong>
-              </div>
-              <div className="metaRow">
-                <span>Model</span>
-                <strong>{chatConfig.model ?? DEFAULT_MODEL}</strong>
-              </div>
-              <div className="metaRow">
-                <span>Reasoning</span>
-                <strong>{chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}</strong>
-              </div>
-            </div>
-          ) : null}
-        </Card>
+        <DemoSidebar
+          collapsed={sidebarCollapsed}
+          showCollapse
+          onToggleCollapse={() => setSidebarCollapsed((current) => !current)}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onCreateSession={handleCreateSession}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onResetThread={handleResetThread}
+          apiKeyLoaded={Boolean(apiKey)}
+          modelLabel={chatConfig.model ?? DEFAULT_MODEL}
+          reasoningLabel={chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
+        />
       </aside>
 
       <ChatRoot chat={chat}>
@@ -468,6 +397,16 @@ export function Workspace({
                 </p>
               </div>
               <div className="conversationMeta conversationActions">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mobileSidebarButton"
+                  onClick={() => setMobileSidebarOpen(true)}
+                >
+                  <PanelLeft size={16} />
+                  <span>Chats</span>
+                </Button>
                 <span className="metaChip">{chatConfig.model ?? DEFAULT_MODEL}</span>
                 <span className="metaChip">
                   {chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
@@ -655,6 +594,31 @@ export function Workspace({
         </main>
 
         <Sheet
+          open={mobileSidebarOpen}
+          onOpenChange={setMobileSidebarOpen}
+        >
+          <SheetContent side="left" className="mobileSidebarSheet" showCloseButton>
+            <SheetHeader className="overlayHeader">
+              <SheetTitle>Chats</SheetTitle>
+              <SheetDescription>Switch conversations without leaving the current view.</SheetDescription>
+            </SheetHeader>
+            <DemoSidebar
+              collapsed={false}
+              showCollapse={false}
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onCreateSession={handleCreateSession}
+              onSelectSession={handleSelectSession}
+              onDeleteSession={handleDeleteSession}
+              onResetThread={handleResetThread}
+              apiKeyLoaded={Boolean(apiKey)}
+              modelLabel={chatConfig.model ?? DEFAULT_MODEL}
+              reasoningLabel={chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
+            />
+          </SheetContent>
+        </Sheet>
+
+        <Sheet
           open={activeInspector !== null}
           onOpenChange={(open) => {
             if (!open) {
@@ -799,7 +763,12 @@ export function Workspace({
 
             {activeInspector === "tools" ? (
               <div className="overlayCard">
-                <ToolEditor value={toolDrafts} onChange={setToolDrafts} />
+                <BrowserToolEditor
+                  value={toolDrafts}
+                  onChange={setToolDrafts}
+                  generatingSchemaForId={generatingSchemaForId}
+                  onGenerateSchema={handleGenerateSchema}
+                />
               </div>
             ) : null}
 

@@ -12,6 +12,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 228, 182, 0.16), transparent 18%),
     #f6f3ec;
@@ -30,6 +32,8 @@ button {
 
 #root {
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .workspaceShell {
@@ -37,7 +41,9 @@ button {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 14px;
   min-height: 100vh;
+  height: 100vh;
   padding: 14px;
+  overflow: hidden;
   transition: grid-template-columns 180ms ease;
 }
 
@@ -50,6 +56,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
 }
 
 .leftRail.collapsed {
@@ -60,6 +67,8 @@ button {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 28px);
+  height: calc(100vh - 28px);
+  overflow: hidden;
   border-radius: 10px;
   border: 1px solid rgba(23, 32, 51, 0.08);
   background: rgba(255, 255, 255, 0.76);
@@ -318,6 +327,8 @@ button {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 28px);
+  height: calc(100vh - 28px);
+  overflow: hidden;
   padding: 20px 22px;
   gap: 18px;
   border-radius: 10px;
@@ -364,6 +375,10 @@ button {
   justify-content: flex-end;
 }
 
+.mobileSidebarButton {
+  display: none;
+}
+
 .metaChip {
   border-radius: 999px;
   padding: 7px 11px;
@@ -391,6 +406,7 @@ button {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 10px 0 6px;
 }
 
@@ -529,6 +545,7 @@ button {
   max-width: 960px;
   width: 100%;
   margin: 4px auto 0;
+  flex: 0 0 auto;
 }
 
 .composerToolbar {
@@ -560,10 +577,13 @@ button {
 
 .composerCard form {
   padding: 16px;
+  display: grid;
+  gap: 12px;
 }
 
 .composerTextarea {
-  min-height: 132px;
+  min-height: clamp(120px, 22vh, 200px);
+  max-height: min(28vh, 220px);
   resize: none;
   border: 0;
   box-shadow: none;
@@ -578,6 +598,19 @@ button {
 
 .overlayPane {
   width: min(420px, calc(100vw - 40px));
+}
+
+.mobileSidebarSheet {
+  width: min(320px, calc(100vw - 24px));
+  padding: 0;
+}
+
+.mobileSidebarSheet .railShell {
+  min-height: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .overlayHeader {
@@ -674,6 +707,39 @@ button {
   margin-top: 2px;
 }
 
+.toolEditorActionsStart {
+  justify-content: flex-start;
+}
+
+.browserToolList {
+  display: grid;
+  gap: 14px;
+}
+
+.browserToolCard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 10px;
+  background: #faf9f6;
+}
+
+.monacoFrame {
+  overflow: hidden;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.monacoFrameSmall {
+  min-height: 190px;
+}
+
+.monacoFrameLarge {
+  min-height: 260px;
+}
+
 .overlayListArea {
   max-height: 220px;
 }
@@ -716,8 +782,13 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .leftRail {
+    display: none;
+  }
+
   .chatRoot {
     min-height: auto;
+    height: auto;
   }
 
   .starterGrid {
@@ -728,6 +799,16 @@ button {
   .composerToolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .conversationActions {
+    align-items: stretch;
+  }
+
+  .mobileSidebarButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .messageCard,
