@@ -1,16 +1,22 @@
 import { AsyncQueue } from "./asyncQueue";
+import { createThreadConfig, mergeThreadConfig, snapshotFromConfig } from "./config";
+import type { McpRegistry } from "./mcp/registry";
 import { RuntimeBridge, ensureWasmInitialized } from "./runtime";
-import { createFetchTransport } from "./transport";
+import { createBrowserRuntimeAdapter } from "./runtime/adapters";
 import type {
-  AgentOptions,
+  CodexClientConfig,
+  CodexThreadConfig,
   ItemCompletedEvent,
-  RunOptions,
   RunResult,
+  SerializableThreadConfig,
   StreamedRunResult,
+  ThreadConfigUpdate,
   ThreadEvent,
   ThreadItem,
-  ThreadOptions,
-  ToolDefinition
+  ThreadRunOptions,
+  ThreadSnapshot,
+  ToolDefinition,
+  ToolSource
 } from "./types";
 
 function toolMetadata(tools: ToolDefinition[]): Array<{
@@ -45,37 +51,159 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-export class CodexWeb {
-  constructor(private readonly options: AgentOptions = {}) {}
+function getDefaultToolSource(name: string): ToolSource {
+  return {
+    kind: name.startsWith("mcp__") ? "mcp" : "local"
+  };
+}
 
-  startThread(threadOptions: ThreadOptions = {}): Thread {
-    return new Thread(this.options, threadOptions);
+function toReasoningSummary(summary: unknown): string | undefined {
+  if (summary === undefined || summary === null) {
+    return undefined;
+  }
+
+  if (summary === true) {
+    return "auto";
+  }
+
+  if (summary === false) {
+    return "none";
+  }
+
+  return typeof summary === "string" ? summary : undefined;
+}
+
+function patchRequestBody(
+  request: Record<string, unknown>,
+  config: CodexThreadConfig,
+  lastResponseId: string | null
+): Record<string, unknown> {
+  const body = { ...request };
+
+  if (config.model) {
+    body.model = config.model;
+  }
+
+  if (config.systemPrompt) {
+    body.instructions = config.systemPrompt;
+  } else {
+    delete body.instructions;
+  }
+
+  if (config.reasoning) {
+    body.reasoning = {
+      effort: config.reasoning.effort,
+      ...(config.reasoning.summary !== undefined
+        ? { summary: toReasoningSummary(config.reasoning.summary) }
+        : {})
+    };
+  } else {
+    delete body.reasoning;
+  }
+
+  if (config.metadata) {
+    body.metadata = config.metadata;
+  } else {
+    delete body.metadata;
+  }
+
+  if (lastResponseId) {
+    body.previous_response_id = lastResponseId;
+  }
+
+  return body;
+}
+
+function isTransportConfigChange(update: ThreadConfigUpdate): boolean {
+  return (
+    update.apiKey !== undefined ||
+    update.baseUrl !== undefined ||
+    update.headers !== undefined ||
+    update.transport !== undefined ||
+    update.fetch !== undefined ||
+    update.runtimeAdapter !== undefined
+  );
+}
+
+function isMcpConfigChange(update: ThreadConfigUpdate): boolean {
+  return update.mcpServers !== undefined || update.mcpRegistry !== undefined || update.runtimeAdapter !== undefined;
+}
+
+export class CodexClient {
+  constructor(private readonly options: CodexClientConfig = {}) {}
+
+  startThread(threadOptions: CodexThreadConfig = {}): CodexThread {
+    return new CodexThread(this.options, threadOptions);
   }
 }
 
-export class Thread {
+export class CodexThread {
   private runtime: RuntimeBridge | null = null;
-  private readonly transport;
-  private threadId: string | null = null;
+  private config: CodexThreadConfig;
+  private transport: CodexThreadConfig["transport"] | null = null;
+  private registry: McpRegistry | null = null;
+  private runtimeAdapter;
 
   constructor(
-    private readonly agentOptions: AgentOptions,
-    private readonly threadOptions: ThreadOptions
+    private readonly options: CodexClientConfig,
+    threadOptions: CodexThreadConfig = {}
   ) {
-    this.transport = agentOptions.transport ?? createFetchTransport(agentOptions);
+    this.config = createThreadConfig(options, threadOptions);
+    this.transport = this.options.transport ?? null;
+    this.registry = this.options.mcpRegistry ?? null;
+    this.runtimeAdapter = this.config.runtimeAdapter ?? createBrowserRuntimeAdapter();
   }
 
   get id(): string | null {
-    return this.threadId;
+    return this.config.threadId ?? null;
   }
 
-  async runStreamed(prompt: string, runOptions: RunOptions = {}): Promise<StreamedRunResult> {
-    await ensureWasmInitialized(this.agentOptions.wasmUrl);
+  get lastResponseId(): string | null {
+    return this.config.lastResponseId ?? null;
+  }
+
+  getConfig(): CodexThreadConfig {
+    return this.config;
+  }
+
+  setConfig(update: ThreadConfigUpdate): CodexThreadConfig {
+    this.config = mergeThreadConfig(this.config, update);
+    if (update.runtimeAdapter) {
+      this.runtimeAdapter = update.runtimeAdapter;
+      this.transport = null;
+      this.registry = null;
+    }
+    if (isTransportConfigChange(update)) {
+      this.transport = update.transport ?? null;
+    }
+    if (isMcpConfigChange(update)) {
+      this.registry = update.mcpRegistry ?? null;
+    }
+    return this.config;
+  }
+
+  snapshot(): ThreadSnapshot {
+    return snapshotFromConfig(this.config);
+  }
+
+  restore(snapshot: ThreadSnapshot, config: ThreadConfigUpdate = {}): CodexThread {
+    const base: SerializableThreadConfig = snapshot.config;
+    this.setConfig({
+      ...base,
+      ...config,
+      threadId: snapshot.threadId,
+      lastResponseId: snapshot.lastResponseId
+    });
+    return this;
+  }
+
+  async runStreamed(prompt: string, runOptions: ThreadRunOptions = {}): Promise<StreamedRunResult> {
+    await ensureWasmInitialized(this.config.wasmUrl ?? this.options.wasmUrl);
     if (!this.runtime) {
       this.runtime = new RuntimeBridge({
-        model: this.agentOptions.model,
-        instructions: this.agentOptions.instructions,
-        maxToolRoundtrips: this.agentOptions.maxToolRoundtrips
+        model: this.config.model,
+        instructions: this.config.systemPrompt,
+        maxToolRoundtrips: this.config.maxToolRoundtrips
       });
     }
     const queue = new AsyncQueue<ThreadEvent>();
@@ -83,15 +211,17 @@ export class Thread {
     return { events: queue };
   }
 
-  async run(prompt: string, runOptions: RunOptions = {}): Promise<RunResult> {
+  async run(prompt: string, runOptions: ThreadRunOptions = {}): Promise<RunResult> {
     const { events } = await this.runStreamed(prompt, runOptions);
     const items = new Map<string, ThreadItem>();
+    const eventLog: ThreadEvent[] = [];
     let finalResponse = "";
     let usage: RunResult["usage"] = null;
     let failure: Extract<ThreadEvent, { type: "error" }> | null = null;
     let turnFailure: string | null = null;
 
     for await (const event of events) {
+      eventLog.push(event);
       if (event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") {
         items.set(event.item.id, event.item);
         if (event.item.type === "agent_message") {
@@ -117,28 +247,79 @@ export class Thread {
     return {
       items: Array.from(items.values()),
       finalResponse,
-      usage
+      usage,
+      events: eventLog
     };
   }
 
-  private async executeTurn(prompt: string, runOptions: RunOptions, queue: AsyncQueue<ThreadEvent>): Promise<void> {
+  private getTransport(config: CodexThreadConfig) {
+    if (config.transport) {
+      return config.transport;
+    }
+
+    if (this.transport) {
+      return this.transport;
+    }
+
+    this.transport = this.runtimeAdapter.createResponsesTransport(config);
+    return this.transport;
+  }
+
+  private getRegistry(config: CodexThreadConfig): McpRegistry {
+    if (config.mcpRegistry) {
+      return config.mcpRegistry;
+    }
+
+    if (this.registry) {
+      if (typeof this.registry.setServers === "function") {
+        this.registry.setServers(config.mcpServers ?? []);
+      }
+      return this.registry;
+    }
+
+    this.registry = this.runtimeAdapter.createMcpRegistry({
+      servers: config.mcpServers ?? []
+    });
+    return this.registry;
+  }
+
+  private async resolveTools(config: CodexThreadConfig, signal?: AbortSignal): Promise<ToolDefinition[]> {
+    const baseTools = config.tools ?? [];
+    if (!config.mcpServers?.length) {
+      return baseTools;
+    }
+
+    const registry = this.getRegistry(config);
+    const mcpTools = registry.asTools(await registry.listTools({
+      servers: config.mcpServers,
+      signal
+    }));
+    return [...baseTools, ...mcpTools];
+  }
+
+  private async executeTurn(
+    prompt: string,
+    runOptions: ThreadRunOptions,
+    queue: AsyncQueue<ThreadEvent>
+  ): Promise<void> {
     if (!this.runtime) {
       throw new Error("WASM runtime was not initialized");
     }
 
-    const tools = runOptions.tools ?? this.threadOptions.tools ?? [];
+    const effectiveConfig = mergeThreadConfig(this.config, runOptions);
+    const tools = await this.resolveTools(effectiveConfig, runOptions.signal);
     const toolMap = new Map(tools.map((tool) => [tool.name, tool]));
+    const transport = this.getTransport(effectiveConfig);
     let step = 0;
 
     try {
       const started = this.runtime.startTurn({
-        threadId: this.threadId,
+        threadId: effectiveConfig.threadId ?? null,
         prompt,
         tools: toolMetadata(tools)
       });
-      this.threadId = started.threadId;
-
-      if (started.isNewThread) {
+      this.config.threadId = started.threadId;
+      if (effectiveConfig.threadId === null || effectiveConfig.threadId === undefined) {
         queue.push({
           type: "thread.started",
           threadId: started.threadId
@@ -147,13 +328,28 @@ export class Thread {
 
       queue.push({ type: "turn.started" });
 
-      let request = started.request;
+      let request = patchRequestBody(started.request, effectiveConfig, effectiveConfig.lastResponseId ?? null);
       while (true) {
-        for await (const rawEvent of this.transport.streamResponse({
+        for await (const rawEvent of transport.streamResponse({
           threadId: started.threadId,
           body: request,
           signal: runOptions.signal
         })) {
+          queue.push({
+            type: "raw.event",
+            event: rawEvent
+          });
+          const completedResponseId =
+            rawEvent.type === "response.completed" &&
+            typeof rawEvent.response === "object" &&
+            rawEvent.response &&
+            "id" in rawEvent.response
+              ? String((rawEvent.response as { id: string }).id)
+              : null;
+          if (completedResponseId) {
+            this.config.lastResponseId = completedResponseId;
+          }
+
           const emittedEvents = this.runtime.ingestStreamEvent(started.threadId, rawEvent);
           for (const event of emittedEvents) {
             queue.push(event);
@@ -198,7 +394,8 @@ export class Thread {
                 name: toolCall.name,
                 arguments: toolCall.arguments,
                 status: "failed",
-                error: errorMessage
+                error: errorMessage,
+                source: getDefaultToolSource(toolCall.name)
               }
             };
             queue.push(failedItem);
@@ -211,6 +408,14 @@ export class Thread {
             continue;
           }
 
+          const source =
+            tool.name.startsWith("mcp__") && tool.name.includes("__")
+              ? {
+                  kind: "mcp" as const,
+                  serverId: tool.name.split("__")[1] ?? undefined
+                }
+              : getDefaultToolSource(tool.name);
+
           try {
             if (runOptions.signal?.aborted) {
               throw Object.assign(new Error("The operation was aborted."), { name: "AbortError" });
@@ -219,7 +424,8 @@ export class Thread {
               threadId: started.threadId,
               callId: toolCall.callId,
               step,
-              signal: runOptions.signal ?? new AbortController().signal
+              signal: runOptions.signal ?? new AbortController().signal,
+              source
             });
             if (runOptions.signal?.aborted) {
               throw Object.assign(new Error("The operation was aborted."), { name: "AbortError" });
@@ -233,7 +439,8 @@ export class Thread {
                 name: toolCall.name,
                 arguments: toolCall.arguments,
                 status: "completed",
-                result
+                result,
+                source
               }
             });
             toolOutputs.push({
@@ -253,7 +460,8 @@ export class Thread {
                 name: toolCall.name,
                 arguments: toolCall.arguments,
                 status: "failed",
-                error: errorMessage
+                error: errorMessage,
+                source
               }
             });
             toolOutputs.push({
@@ -266,7 +474,11 @@ export class Thread {
         }
 
         step += 1;
-        request = this.runtime.submitToolOutputs(started.threadId, toolOutputs);
+        request = patchRequestBody(
+          this.runtime.submitToolOutputs(started.threadId, toolOutputs),
+          effectiveConfig,
+          this.config.lastResponseId ?? null
+        );
       }
     } catch (error) {
       if (isAbortError(error)) {
@@ -280,4 +492,11 @@ export class Thread {
       queue.close();
     }
   }
+}
+
+export const CodexWeb = CodexClient;
+export const Thread = CodexThread;
+
+export function createCodexClient(config: CodexClientConfig = {}): CodexClient {
+  return new CodexClient(config);
 }

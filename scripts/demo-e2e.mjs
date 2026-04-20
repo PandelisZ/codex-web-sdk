@@ -236,7 +236,7 @@ async function main() {
       await page.waitForFunction(() => {
         const element = document.querySelector('[data-testid="event-log"]');
         const text = element?.textContent ?? "";
-        return text.includes("turn completed:") && text.includes("item.completed: agent_message");
+        return text.includes("turn.completed") && text.includes("agent_message");
       });
 
       const assistantOutput = await page.getByTestId("assistant-output").textContent();
@@ -248,8 +248,8 @@ async function main() {
 
       const eventLog = await page.getByTestId("event-log").textContent();
       lastEventLog = eventLog ?? "";
-      assert.ok(eventLog?.includes("turn completed:"), "turn completion was not rendered");
-      assert.ok(eventLog?.includes("item.completed: agent_message"), "agent completion item was not rendered");
+      assert.ok(eventLog?.includes("turn.completed"), "turn completion was not rendered");
+      assert.ok(eventLog?.includes("agent_message"), "agent completion item was not rendered");
 
       await page.screenshot({ path: screenshotPath, fullPage: true });
       console.log(`E2E demo check passed: ${screenshotPath}`);

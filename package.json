@@ -8,8 +8,9 @@
     "build:sdk": "node ./scripts/build-sdk.mjs",
     "build": "pnpm build:upstream && pnpm build:wasm && pnpm build:sdk && pnpm --filter codex-web-sdk-demo build",
     "dev": "pnpm build:upstream && pnpm build:wasm && pnpm --filter codex-web-sdk-demo dev",
-    "test": "pnpm build:upstream && pnpm build:wasm && pnpm exec vitest run --config vitest.config.ts",
-    "test:demo": "pnpm build:upstream && pnpm build:wasm && pnpm exec vitest run --config vitest.config.ts apps/demo/src/**/*.test.tsx",
+    "demo:open": "node ./scripts/demo-live.mjs",
+    "test": "pnpm build:upstream && pnpm build:wasm && pnpm build:sdk && pnpm exec vitest run --config vitest.config.ts",
+    "test:demo": "pnpm build:upstream && pnpm build:wasm && pnpm build:sdk && pnpm exec vitest run --config vitest.config.ts apps/demo/src/**/*.test.tsx",
     "playwright:install": "pnpm exec playwright install chromium",
     "test:e2e": "pnpm build && node ./scripts/demo-e2e.mjs"
   },
@@ -19,7 +20,9 @@
     }
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
     "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.7.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -28,6 +31,7 @@
     "playwright": "1.59.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^7.1.10",
     "vitest": "^3.2.4"

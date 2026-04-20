@@ -1,3 +1,6 @@
+import type { McpRegistry } from "./mcp/registry";
+import type { CodexRuntimeAdapter } from "./runtime/adapters";
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
   | JsonPrimitive
@@ -15,6 +18,22 @@ export type Usage = {
 };
 
 export type ItemStatus = "in_progress" | "completed" | "failed";
+export type CodexRuntimeKind = "browser" | "node";
+export type ToolSourceKind = "local" | "mcp";
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+export type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
+
+export type ReasoningConfig = {
+  effort: ReasoningEffort;
+  summary?: ReasoningSummary;
+};
+
+export type ToolSource = {
+  kind: ToolSourceKind;
+  serverId?: string;
+  serverName?: string;
+  toolName?: string;
+};
 
 export type AgentMessageItem = {
   id: string;
@@ -32,6 +51,7 @@ export type ToolCallItem = {
   status: ItemStatus;
   result?: unknown;
   error?: string;
+  source?: ToolSource;
 };
 
 export type ReasoningItem = {
@@ -91,6 +111,11 @@ export type ErrorEvent = {
   message: string;
 };
 
+export type RawEventObservedEvent = {
+  type: "raw.event";
+  event: RawResponsesStreamEvent;
+};
+
 export type ThreadEvent =
   | ThreadStartedEvent
   | TurnStartedEvent
@@ -100,51 +125,85 @@ export type ThreadEvent =
   | ItemCompletedEvent
   | TurnCompletedEvent
   | TurnFailedEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | RawEventObservedEvent;
 
 export type ToolExecutionContext = {
   threadId: string;
   callId: string;
   step: number;
   signal: AbortSignal;
+  source: ToolSource;
 };
 
-export type ToolDefinition = {
+export type ToolDefinition<TInput = unknown, TResult = unknown> = {
   name: string;
   description?: string;
   inputSchema?: JsonSchema;
-  execute: (input: unknown, context: ToolExecutionContext) => Promise<unknown> | unknown;
+  metadata?: Record<string, JsonValue>;
+  execute: (input: TInput, context: ToolExecutionContext) => Promise<TResult> | TResult;
 };
 
-export type AgentOptions = {
-  apiKey?: string;
-  baseUrl?: string;
-  headers?: HeadersInit;
-  model?: string;
-  instructions?: string;
-  maxToolRoundtrips?: number;
-  transport?: ResponsesTransport;
-  fetch?: typeof fetch;
-  wasmUrl?: unknown;
+export type SerializableHeaders = Record<string, string>;
+
+export type BaseMcpServerDescriptor = {
+  id: string;
+  name?: string;
+  enabled?: boolean;
+  headers?: SerializableHeaders;
+  metadata?: Record<string, JsonValue>;
+  timeoutMs?: number;
 };
 
-export type ThreadOptions = {
-  tools?: ToolDefinition[];
+export type StreamableHttpMcpServerDescriptor = BaseMcpServerDescriptor & {
+  transport: "streamable-http";
+  url: string;
 };
 
-export type RunOptions = {
-  tools?: ToolDefinition[];
-  signal?: AbortSignal;
+export type SseMcpServerDescriptor = BaseMcpServerDescriptor & {
+  transport: "sse";
+  url: string;
 };
 
-export type RunResult = {
-  items: ThreadItem[];
-  finalResponse: string;
-  usage: Usage | null;
+export type WebSocketMcpServerDescriptor = BaseMcpServerDescriptor & {
+  transport: "websocket";
+  url: string;
+  protocols?: string[];
 };
 
-export type StreamedRunResult = {
-  events: AsyncIterableIterator<ThreadEvent>;
+export type StdioMcpServerDescriptor = BaseMcpServerDescriptor & {
+  transport: "stdio";
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+};
+
+export type McpServerDescriptor =
+  | StreamableHttpMcpServerDescriptor
+  | SseMcpServerDescriptor
+  | WebSocketMcpServerDescriptor
+  | StdioMcpServerDescriptor;
+
+export type McpToolDescriptor = {
+  id: string;
+  serverId: string;
+  serverName: string;
+  name: string;
+  qualifiedName: string;
+  description?: string;
+  inputSchema?: JsonSchema;
+  source: ToolSource;
+};
+
+export type McpServerStatus = {
+  serverId: string;
+  serverName: string;
+  transport: McpServerDescriptor["transport"];
+  available: boolean;
+  nodeOnly: boolean;
+  reason?: string;
+  toolCount?: number;
 };
 
 export type ResponsesRequest = {
@@ -162,15 +221,88 @@ export interface ResponsesTransport {
   streamResponse(request: ResponsesRequest): AsyncIterable<RawResponsesStreamEvent>;
 }
 
-export type CodexChatStatus = "idle" | "submitted" | "streaming" | "ready" | "error";
-
-export type CodexChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: number;
-  status: Exclude<CodexChatStatus, "idle">;
-  items: ThreadItem[];
-  error?: string;
-  usage?: Usage | null;
+export type CodexSharedConfig = {
+  apiKey?: string;
+  baseUrl?: string;
+  headers?: HeadersInit;
+  model?: string;
+  reasoning?: ReasoningConfig;
+  systemPrompt?: string;
+  tools?: ToolDefinition[];
+  mcpServers?: McpServerDescriptor[];
+  metadata?: Record<string, JsonValue>;
+  transport?: ResponsesTransport;
+  fetch?: typeof fetch;
+  wasmUrl?: unknown;
+  maxToolRoundtrips?: number;
+  runtimeAdapter?: CodexRuntimeAdapter;
+  mcpRegistry?: McpRegistry;
 };
+
+export type CodexClientConfig = CodexSharedConfig;
+
+export type CodexThreadConfig = CodexSharedConfig & {
+  threadId?: string | null;
+  lastResponseId?: string | null;
+};
+
+export type ThreadConfigUpdate = Partial<CodexThreadConfig>;
+
+export type ThreadRunOptions = Partial<
+  Omit<CodexThreadConfig, "threadId" | "lastResponseId" | "runtimeAdapter" | "mcpRegistry">
+> & {
+  signal?: AbortSignal;
+};
+
+export type SerializableThreadConfig = {
+  apiKey?: string;
+  baseUrl?: string;
+  headers?: SerializableHeaders;
+  model?: string;
+  reasoning?: ReasoningConfig;
+  systemPrompt?: string;
+  mcpServers?: McpServerDescriptor[];
+  metadata?: Record<string, JsonValue>;
+  maxToolRoundtrips?: number;
+};
+
+export type ThreadSnapshot = {
+  threadId: string | null;
+  lastResponseId: string | null;
+  config: SerializableThreadConfig;
+};
+
+export type RunResult = {
+  items: ThreadItem[];
+  finalResponse: string;
+  usage: Usage | null;
+  events: ThreadEvent[];
+};
+
+export type StreamedRunResult = {
+  events: AsyncIterableIterator<ThreadEvent>;
+};
+
+export type CreateMcpRegistryOptions = {
+  servers?: McpServerDescriptor[];
+  adapters?: McpTransportAdapter[];
+  runtime?: CodexRuntimeKind;
+  fetch?: typeof fetch;
+};
+
+export interface McpTransportAdapter {
+  readonly transport: McpServerDescriptor["transport"];
+  readonly runtime: CodexRuntimeKind;
+  listTools(server: McpServerDescriptor, signal?: AbortSignal): Promise<McpToolDescriptor[]>;
+  callTool(args: {
+    server: McpServerDescriptor;
+    tool: McpToolDescriptor;
+    input: unknown;
+    signal?: AbortSignal;
+  }): Promise<unknown>;
+  dispose?(): Promise<void>;
+}
+
+export type AgentOptions = CodexClientConfig;
+export type ThreadOptions = CodexThreadConfig;
+export type RunOptions = ThreadRunOptions;

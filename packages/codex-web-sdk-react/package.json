@@ -1,0 +1,22 @@
+{
+  "name": "@pandelis/codex-web-sdk-react",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@pandelis/codex-web-sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0 || ^19.0.0"
+  },
+  "scripts": {
+    "test": "pnpm exec vitest run --root ../.. --config vitest.config.ts packages/codex-web-sdk-react/test/**/*.test.tsx"
+  }
+}

@@ -1,143 +1,113 @@
-import type { AgentOptions, ResponsesTransport, ThreadOptions } from "../../../packages/codex-web-sdk/src/index";
-import type { ThreadEvent } from "../../../packages/codex-web-sdk/src/index";
-import { useCodexAgent } from "../../../packages/codex-web-sdk/src/react";
+import { useEffect, useMemo, useState } from "react";
 
-const DEFAULT_PROMPT = "Reply with exactly: PANDELIS_CODEX_WEB_OK";
+import { CodexProvider, type CodexPersistenceAdapter } from "@pandelis/codex-web-sdk-react";
 
-type RuntimeConfig = {
-  apiKey?: string;
-  baseUrl?: string;
-  model?: string;
-  initialInput?: string;
-};
+import { Workspace } from "./components/Workspace";
+import {
+  createId,
+  createWorkspaceConfig,
+  getRuntimeConfig,
+  type DemoAppProps
+} from "./lib/runtimeConfig";
+import {
+  loadPresets,
+  loadSessionRecord,
+  loadSessions,
+  removeSessionRecord,
+  upsertSessionRecord,
+  type WorkspaceSessionRecord
+} from "./lib/storage";
 
-declare global {
-  interface Window {
-    __PANDELIS_CODEX_WEB_CONFIG__?: RuntimeConfig;
-  }
+function getEventLabel(event: unknown): string {
+  return JSON.stringify(event, null, 2);
 }
 
-function getEventLabel(event: ThreadEvent): string {
-  switch (event.type) {
-    case "thread.started":
-      return `thread started: ${event.threadId}`;
-    case "turn.started":
-      return "turn started";
-    case "text.delta":
-      return `delta: ${event.delta}`;
-    case "item.started":
-    case "item.updated":
-    case "item.completed":
-      return `${event.type}: ${event.item.type}`;
-    case "turn.completed":
-      return `turn completed: ${event.usage.outputTokens} output tokens`;
-    case "turn.failed":
-      return `turn failed: ${event.error.message}`;
-    case "error":
-      return `error: ${event.message}`;
-  }
-}
-
-type AppProps = {
-  wasmUrl?: AgentOptions["wasmUrl"];
-  transport?: ResponsesTransport;
-  initialInput?: string;
-  agentOptions?: Partial<AgentOptions>;
-  threadOptions?: ThreadOptions;
-};
-
-function defaultThreadOptions(): ThreadOptions {
-  return {
-    tools: []
-  };
-}
-
-function getRuntimeConfig(): RuntimeConfig {
-  if (typeof window === "undefined") {
-    return {};
-  }
-
-  return window.__PANDELIS_CODEX_WEB_CONFIG__ ?? {};
-}
-
-export function App({ wasmUrl, transport, initialInput, agentOptions, threadOptions }: AppProps = {}): JSX.Element {
-  const runtimeConfig = getRuntimeConfig();
-  const resolvedInput = initialInput ?? runtimeConfig.initialInput ?? DEFAULT_PROMPT;
-  const hasConfiguredTransport =
-    Boolean(transport) ||
-    Boolean(agentOptions?.transport) ||
-    Boolean(runtimeConfig.baseUrl) ||
-    Boolean(runtimeConfig.apiKey) ||
-    Boolean(agentOptions?.baseUrl) ||
-    Boolean(agentOptions?.apiKey);
-  const {
-    input: prompt,
-    setInput: setPrompt,
-    messages,
-    events,
-    status,
-    submit
-  } = useCodexAgent({
-    agentOptions: {
-      apiKey: runtimeConfig.apiKey,
-      baseUrl: runtimeConfig.baseUrl,
-      model: runtimeConfig.model,
+export function App({ wasmUrl, transport, initialInput, agentOptions }: DemoAppProps = {}): JSX.Element {
+  const runtimeConfig = useMemo(() => getRuntimeConfig(), []);
+  const runtimeDefaults = useMemo(
+    () => createWorkspaceConfig(runtimeConfig, initialInput),
+    [initialInput, runtimeConfig]
+  );
+  const providerConfig = useMemo(
+    () => ({
+      ...agentOptions,
       transport,
-      wasmUrl,
-      ...agentOptions
-    },
-    threadOptions: threadOptions ?? defaultThreadOptions(),
-    initialInput: resolvedInput
+      wasmUrl
+    }),
+    [agentOptions, transport, wasmUrl]
+  );
+  const [sessions, setSessions] = useState(() => loadSessions());
+  const [presets, setPresets] = useState(() => loadPresets());
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const fromHash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    return fromHash || loadSessions()[0]?.id || createId("session");
   });
 
-  const assistantText =
-    [...messages]
-      .reverse()
-      .find((message) => message.role === "assistant")
-      ?.content ?? "";
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleHashChange = () => {
+      const next = window.location.hash.replace(/^#/, "");
+      if (next) {
+        setActiveSessionId(next);
+      }
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  const persistence = useMemo<CodexPersistenceAdapter>(
+    () => ({
+      loadSession(id) {
+        return loadSessionRecord(id)?.chat ?? null;
+      },
+      saveSession(session) {
+        const current = loadSessionRecord(session.id);
+        setSessions(
+          upsertSessionRecord({
+            id: session.id,
+            name: current?.name ?? "Current workspace",
+            workspace: current?.workspace ?? runtimeDefaults,
+            chat: session,
+            updatedAt: Date.now()
+          })
+        );
+      },
+      clearSession(id) {
+        setSessions(removeSessionRecord(id));
+      }
+    }),
+    [runtimeDefaults]
+  );
+
+  const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
 
   return (
-    <main className="page">
-      <section className="panel">
-        <header className="header">
-          <p className="eyebrow">@pandelis/codex-web-sdk</p>
-          <h1>@pandelis/codex-web-sdk demo</h1>
-          <p className="lede">
-            This page runs the WebAssembly runtime in the browser and streams from a live Responses-compatible endpoint.
-          </p>
-          {!hasConfiguredTransport ? (
-            <p className="lede">
-              Provide <code>window.__PANDELIS_CODEX_WEB_CONFIG__ = {"{ baseUrl }"}</code> before loading the page,
-              or pass <code>agentOptions</code> / <code>transport</code> as props when embedding the component.
-            </p>
-          ) : null}
-        </header>
-
-        <label className="composer" htmlFor="prompt">
-          <span>Prompt</span>
-          <textarea id="prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} />
-        </label>
-
-        <button className="runButton" disabled={!hasConfiguredTransport || status === "submitted" || status === "streaming"} onClick={() => void submit()} type="button">
-          {status === "submitted" || status === "streaming" ? "Streaming..." : "Run Turn"}
-        </button>
-      </section>
-
-      <section className="grid">
-        <article className="card">
-          <h2>Assistant Output</h2>
-          <pre data-testid="assistant-output">{assistantText || "Waiting for output..."}</pre>
-        </article>
-
-        <article className="card">
-          <h2>Event Log</h2>
-          <ol data-testid="event-log">
-            {events.map((event, index) => (
-              <li key={`${index}-${event.type}`}>{getEventLabel(event)}</li>
-            ))}
-          </ol>
-        </article>
-      </section>
-    </main>
+    <CodexProvider
+      config={providerConfig}
+      persistence={persistence}
+    >
+      <Workspace
+        wasmUrl={wasmUrl}
+        transport={transport}
+        agentOptions={agentOptions}
+        initialApiKey={runtimeConfig.apiKey}
+        activeSessionId={activeSessionId}
+        onSessionsChange={setSessions}
+        sessions={sessions}
+        presets={presets}
+        onPresetsChange={setPresets}
+        runtimeDefaults={runtimeDefaults}
+      />
+      <output hidden data-testid="event-log">
+        {JSON.stringify(activeSession?.chat?.events.map(getEventLabel) ?? [])}
+      </output>
+      <output hidden data-testid="assistant-output">
+        {activeSession?.chat?.messages.findLast((message) => message.role === "assistant")?.content ?? ""}
+      </output>
+    </CodexProvider>
   );
 }

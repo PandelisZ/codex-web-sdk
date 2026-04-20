@@ -148,6 +148,33 @@ impl Runtime {
                     },
                 });
             }
+            "response.reasoning_summary_text.delta" | "response.reasoning_text.delta" => {
+                let item_id = event.item_id.ok_or(RuntimeError::MissingField("item_id"))?;
+                let delta = event.delta.unwrap_or_default();
+                let snapshot = thread.reasoning_items.entry(item_id.clone()).or_default();
+                snapshot.push_str(&delta);
+                emitted.push(RuntimeEvent::ItemUpdated {
+                    item: ThreadItem::Reasoning {
+                        id: item_id,
+                        text: snapshot.clone(),
+                        status: ItemStatus::InProgress,
+                    },
+                });
+            }
+            "response.reasoning_summary_text.done" | "response.reasoning_text.done" => {
+                let item_id = event.item_id.ok_or(RuntimeError::MissingField("item_id"))?;
+                let final_text = event.text.unwrap_or_default();
+                thread
+                    .reasoning_items
+                    .insert(item_id.clone(), final_text.clone());
+                emitted.push(RuntimeEvent::ItemUpdated {
+                    item: ThreadItem::Reasoning {
+                        id: item_id,
+                        text: final_text,
+                        status: ItemStatus::InProgress,
+                    },
+                });
+            }
             "response.function_call_arguments.delta" => {
                 let item_id = event.item_id.ok_or(RuntimeError::MissingField("item_id"))?;
                 let delta = event.delta.unwrap_or_default();

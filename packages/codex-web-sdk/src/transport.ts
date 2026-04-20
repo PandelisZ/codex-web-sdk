@@ -36,6 +36,17 @@ async function* parseSseStream(response: Response): AsyncGenerator<RawResponsesS
     }
 
     if (done) {
+      const chunk = buffer.trim();
+      if (chunk) {
+        const lines = chunk
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trimStart());
+        const payload = lines.join("\n");
+        if (payload && payload !== "[DONE]") {
+          yield JSON.parse(payload) as RawResponsesStreamEvent;
+        }
+      }
       break;
     }
   }

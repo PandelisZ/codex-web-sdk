@@ -1,13 +1,8 @@
 :root {
-  color: #13221c;
-  background:
-    radial-gradient(circle at top left, rgba(181, 225, 199, 0.85), transparent 28%),
-    linear-gradient(135deg, #f2f6ee 0%, #e4efe6 45%, #d8ebdf 100%);
-  font-family:
-    "Iowan Old Style",
-    "Palatino Linotype",
-    "Book Antiqua",
-    serif;
+  color-scheme: light;
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  background: #f6f3ec;
+  color: #172033;
 }
 
 * {
@@ -17,112 +12,733 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 228, 182, 0.16), transparent 18%),
+    #f6f3ec;
 }
 
-.page {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 40px 24px 64px;
-}
-
-.panel {
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(19, 34, 28, 0.12);
-  border-radius: 28px;
-  padding: 28px;
-  box-shadow: 0 18px 50px rgba(31, 71, 57, 0.12);
-  backdrop-filter: blur(10px);
-}
-
-.header h1,
-.card h2 {
-  margin: 0;
-  font-weight: 600;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 12px;
-}
-
-.lede {
-  max-width: 68ch;
-  line-height: 1.5;
-}
-
-.composer {
-  display: grid;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.composer textarea {
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(19, 34, 28, 0.18);
-  background: rgba(255, 255, 255, 0.72);
-  padding: 16px;
+button,
+input,
+textarea,
+select {
   font: inherit;
 }
 
-.runButton {
-  margin-top: 18px;
-  border: 0;
-  border-radius: 999px;
-  padding: 14px 22px;
-  background: #255f46;
-  color: white;
-  font: inherit;
+button {
   cursor: pointer;
 }
 
-.runButton:disabled {
-  opacity: 0.7;
-  cursor: progress;
+#root {
+  min-height: 100vh;
 }
 
-.grid {
-  margin-top: 24px;
+.workspaceShell {
   display: grid;
-  gap: 24px;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 100vh;
+  padding: 14px;
+  transition: grid-template-columns 180ms ease;
 }
 
-.card {
-  min-height: 280px;
-  border-radius: 24px;
+.workspaceShell.sidebarCollapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.leftRail,
+.centerPane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.leftRail.collapsed {
+  gap: 8px;
+}
+
+.railShell {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 28px);
+  border-radius: 10px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
   background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(19, 34, 28, 0.12);
-  padding: 24px;
-  box-shadow: 0 18px 40px rgba(31, 71, 57, 0.1);
+  color: #172033;
+  box-shadow: 0 8px 24px rgba(74, 57, 29, 0.04);
 }
 
-.card pre {
-  margin: 16px 0 0;
+.railShellHeader,
+.railSection {
+  padding: 16px;
+}
+
+.leftRail.collapsed .railShellHeader,
+.leftRail.collapsed .railSection {
+  padding: 12px 8px;
+}
+
+.railTopbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.leftRail.collapsed .railTopbar {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebarToggle {
+  width: 32px;
+  height: 32px;
+}
+
+.leftRail.collapsed .sidebarToggle {
+  width: 28px;
+  height: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a867c;
+}
+
+.lede {
+  margin: 0;
+  color: #6a6f7c;
+  line-height: 1.55;
+}
+
+.railHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.railCollapsedActions {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.railHeader h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.railSeparator {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.railScrollArea {
+  max-height: 280px;
+}
+
+.railScrollAreaPresets {
+  max-height: 220px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field + .field {
+  margin-top: 14px;
+}
+
+.field span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7a7f8d;
+}
+
+.field input,
+.field textarea,
+.field select,
+[data-slot="input"],
+[data-slot="textarea"],
+[data-codex-tool-row] input,
+[data-codex-tool-row] textarea,
+[data-codex-mcp-row] input,
+[data-codex-mcp-row] select,
+[data-codex-composer-input] {
+  width: 100%;
+  color: inherit;
+}
+
+.checkboxField {
+  justify-content: flex-end;
+}
+
+.checkboxField input {
+  width: auto;
+}
+
+.stackList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.leftRail.collapsed .stackList {
+  gap: 10px;
+}
+
+.listButton {
+  width: 100%;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  color: #172033;
+}
+
+.leftRail.collapsed .listButton {
+  justify-content: center;
+  padding: 6px;
+  border-radius: 10px;
+}
+
+.listButtonTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listButtonMeta {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.listButtonLeading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #f2efe8;
+  color: #4b5368;
+  flex: 0 0 auto;
+}
+
+.listButtonGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f2efe8;
+  font-weight: 700;
+}
+
+.leftRail.collapsed .listButtonGlyph {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.listButton.active {
+  background: #f1ede5;
+  color: #172033;
+  border-color: rgba(23, 32, 51, 0.1);
+}
+
+.listButton.active .listButtonGlyph {
+  background: #ffffff;
+}
+
+.actionRow {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  grid-template-columns: 1fr;
+}
+
+.actionRow button,
+.railHeader button,
+[data-codex-composer-actions] button,
+[data-codex-tool-editor] > header button,
+[data-codex-mcp-list] > header button,
+[data-codex-tool-row] button,
+[data-codex-mcp-row] button {
+  font-weight: 600;
+}
+
+.railMetaCard {
+  margin-top: auto;
+}
+
+.leftRail.collapsed .railMetaCard {
+  display: none;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(23, 32, 51, 0.08);
+}
+
+.metaRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.metaRow span {
+  color: #7a7f8d;
+}
+
+.centerPane {
+  min-width: 0;
+}
+
+.chatRoot {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 28px);
+  padding: 20px 22px;
+  gap: 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 30px rgba(74, 57, 29, 0.06);
+}
+
+.conversationHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.conversationHeader h2 {
+  margin: 4px 0 0;
+  font-size: 26px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.conversationSubtle {
+  margin: 8px 0 0;
+  color: #7d8492;
+  font-size: 14px;
+}
+
+.conversationEyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8b92ad;
+}
+
+.conversationMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.conversationActions {
+  justify-content: flex-end;
+}
+
+.metaChip {
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: #f3f5fb;
+  color: #33405a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.metaChipButton {
+  border-radius: 999px;
+}
+
+.statusBar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  color: #7b8399;
+  background: transparent;
+  border-radius: 0;
+}
+
+.transcriptPanel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 0 6px;
+}
+
+.transcriptPanelEmpty {
+  display: grid;
+  align-items: center;
+}
+
+.messageList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.emptyTranscript {
+  display: grid;
+  gap: 14px;
+  padding: 6px 0 20px;
+}
+
+.chatLanding {
+  max-width: 860px;
+  margin: auto auto 0;
+  width: 100%;
+}
+
+.introBubble {
+  max-width: 760px;
+  margin: 0 auto;
+  border-radius: 12px;
+  padding: 24px 26px;
+  background:
+    linear-gradient(180deg, rgba(255, 226, 176, 0.18), transparent 38%),
+    #ffffff;
+  border: 1px solid rgba(23, 32, 51, 0.06);
+  box-shadow: none;
+  text-align: center;
+}
+
+.introLabel {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8b6b39;
+}
+
+.introBubble h3 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.introBubble p:last-child {
+  margin: 0;
+  color: #4f5970;
+  line-height: 1.6;
+}
+
+.starterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.starterPrompt {
+  min-height: 56px;
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+  align-items: flex-start;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.messageRow {
+  display: flex;
+}
+
+.messageRow.role-user {
+  justify-content: flex-end;
+}
+
+.messageRow.role-assistant,
+.messageRow.role-reasoning,
+.messageRow.role-tool_call,
+.messageRow.role-tool_result,
+.messageRow.role-error {
+  justify-content: flex-start;
+}
+
+.messageCard {
+  max-width: min(78%, 760px);
+  border-radius: 8px;
+  border: 1px solid rgba(23, 32, 51, 0.06);
+  box-shadow: none;
+}
+
+.messageCardBody {
+  padding: 12px 14px;
+}
+
+.messageCard pre {
+  margin: 0;
   white-space: pre-wrap;
-  line-height: 1.5;
-  font-family:
-    "SF Mono",
-    "Menlo",
-    monospace;
+  word-break: break-word;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
-.card ol {
-  margin: 16px 0 0;
-  padding-left: 20px;
-  line-height: 1.5;
+.messageCard.role-user {
+  border-radius: 8px 8px 3px 8px;
+  background: linear-gradient(135deg, rgba(255, 196, 111, 0.26), rgba(244, 140, 87, 0.12));
 }
 
-@media (max-width: 640px) {
-  .page {
-    padding: 20px 16px 40px;
+.messageCard.role-assistant {
+  border-radius: 8px 8px 8px 3px;
+  background: #ffffff;
+}
+
+.messageCard.role-reasoning,
+.messageCard.role-tool_call,
+.messageCard.role-tool_result,
+.messageCard.role-error {
+  max-width: min(72%, 640px);
+  background: #f7f8fc;
+}
+
+.composerShell {
+  display: grid;
+  gap: 10px;
+  max-width: 960px;
+  width: 100%;
+  margin: 4px auto 0;
+}
+
+.composerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+}
+
+.toolbarSelectors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.toolbarSelect {
+  min-width: 132px;
+}
+
+.composerCard {
+  padding: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  box-shadow: none;
+}
+
+.composerCard form {
+  padding: 16px;
+}
+
+.composerTextarea {
+  min-height: 132px;
+  resize: none;
+  border: 0;
+  box-shadow: none;
+}
+
+[data-codex-composer-actions] {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+.overlayPane {
+  width: min(420px, calc(100vw - 40px));
+}
+
+.overlayHeader {
+  border-bottom: 1px solid rgba(23, 32, 51, 0.08);
+}
+
+.overlayCard {
+  height: calc(100vh - 8rem);
+  overflow: auto;
+  padding: 18px 20px 20px;
+}
+
+.overlayListArea {
+  max-height: 220px;
+}
+
+.listButtonLight {
+  border-color: rgba(23, 32, 51, 0.08);
+  background: #ffffff;
+  color: #172033;
+}
+
+.controlGrid {
+  display: grid;
+  gap: 12px;
+}
+
+[data-codex-tool-row],
+[data-codex-mcp-row] {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 10px;
+  background: #faf9f6;
+}
+
+[data-codex-tool-row] + [data-codex-tool-row],
+[data-codex-mcp-row] + [data-codex-mcp-row] {
+  margin-top: 12px;
+}
+
+.toolEditorToolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.toolEditorToolbar h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.toolEditorToolbar p {
+  margin: 4px 0 0;
+  color: #7a7f8d;
+  font-size: 13px;
+}
+
+.toolEditorHeader,
+.mcpEditorHeader {
+  display: grid;
+  gap: 2px;
+}
+
+.toolEditorHeader strong,
+.mcpEditorHeader strong {
+  font-size: 14px;
+}
+
+.toolEditorHeader span,
+.mcpEditorHeader span {
+  color: #7a7f8d;
+  font-size: 12px;
+}
+
+.toolEditorField {
+  display: grid;
+  gap: 6px;
+}
+
+.toolEditorField span {
+  color: #7a7f8d;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolEditorActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.overlayListArea {
+  max-height: 220px;
+}
+
+.listButtonLight {
+  border-color: rgba(23, 32, 51, 0.08);
+  background: #ffffff;
+  color: #172033;
+}
+
+[data-codex-event-inspector] {
+  display: grid;
+  gap: 18px;
+}
+
+[data-codex-event-inspector] ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+[data-codex-event-inspector] pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(23, 32, 51, 0.04);
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 1180px) {
+  .workspaceShell,
+  .workspaceShell.sidebarCollapsed {
+    grid-template-columns: 1fr;
   }
 
-  .panel,
-  .card {
-    padding: 20px;
+  .chatRoot {
+    min-height: auto;
+  }
+
+  .starterGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .conversationHeader,
+  .composerToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .messageCard,
+  .messageCard.role-reasoning,
+  .messageCard.role-tool_call,
+  .messageCard.role-tool_result,
+  .messageCard.role-error {
+    max-width: 100%;
+  }
+
+  .overlayPane {
+    width: auto;
   }
 }
-

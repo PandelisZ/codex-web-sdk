@@ -1,38 +1,100 @@
-import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { createDemoMockTransport } from "../../../packages/codex-web-sdk/src/index";
-import { loadTestWasmModule } from "../../../packages/codex-web-sdk/test/loadWasm";
-import { App } from "./App";
+import { getRuntimeConfig } from "./lib/runtimeConfig";
+import {
+  loadPresets,
+  loadSessions,
+  readStoredApiKey,
+  savePresets,
+  upsertSessionRecord,
+  writeStoredApiKey
+} from "./lib/storage";
 
-describe("App", () => {
-  it("renders streaming output from the mock transport", async () => {
-    const wasmUrl = await loadTestWasmModule();
-    render(
-      <App
-        wasmUrl={wasmUrl}
-        transport={createDemoMockTransport()}
-        initialInput="Plan a Saturday picnic in Limassol."
-        threadOptions={{
-          tools: [
-            {
-              name: "weather_lookup",
-              execute: async (input) => ({
-                ...(input as Record<string, unknown>),
-                summary: "Sunny, 24C, light sea breeze"
-              })
-            }
-          ]
-        }}
-      />
-    );
+describe("demo workspace persistence helpers", () => {
+  function installLocalStorageStub() {
+    const store = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem(key: string) {
+          return store.get(key) ?? null;
+        },
+        setItem(key: string, value: string) {
+          store.set(key, value);
+        },
+        removeItem(key: string) {
+          store.delete(key);
+        }
+      }
+    });
+  }
 
-    screen.getByRole("button", { name: "Run Turn" }).click();
+  function resetRuntimeConfig() {
+    delete globalThis.__PANDELIS_CODEX_WEB_ENV_CONFIG__;
+    delete window.__PANDELIS_CODEX_WEB_CONFIG__;
+  }
 
-    await waitFor(() => {
-      expect(screen.getByTestId("assistant-output").textContent).toContain(
-        "The weather looks sunny at 24C"
-      );
+  it("persists API keys, presets, and sessions", () => {
+    resetRuntimeConfig();
+    installLocalStorageStub();
+
+    writeStoredApiKey("sk-demo");
+    savePresets([
+      {
+        id: "preset_1",
+        name: "Workspace preset",
+        updatedAt: 1,
+        config: {
+          model: "gpt-5.1-codex",
+          reasoning: {
+            effort: "medium",
+            summary: "auto"
+          },
+          systemPrompt: "",
+          prompt: "hello",
+          toolDrafts: [],
+          mcpServers: []
+        }
+      }
+    ]);
+    upsertSessionRecord({
+      id: "session_1",
+      name: "Current workspace",
+      updatedAt: 1,
+      workspace: {
+        model: "gpt-5.1-codex",
+        reasoning: {
+          effort: "medium",
+          summary: "auto"
+        },
+        systemPrompt: "",
+        prompt: "hello",
+        toolDrafts: [],
+        mcpServers: []
+      },
+      chat: null
+    });
+
+    expect(readStoredApiKey()).toBe("sk-demo");
+    expect(loadPresets()).toHaveLength(1);
+    expect(loadSessions()).toHaveLength(1);
+  });
+
+  it("falls back to the bundled env API key and lets window config override other fields", () => {
+    resetRuntimeConfig();
+    globalThis.__PANDELIS_CODEX_WEB_ENV_CONFIG__ = {
+      apiKey: "sk-env",
+      model: "gpt-4.1"
+    };
+    window.__PANDELIS_CODEX_WEB_CONFIG__ = {
+      model: "gpt-5.4",
+      initialInput: "hello"
+    };
+
+    expect(getRuntimeConfig()).toEqual({
+      apiKey: "sk-env",
+      model: "gpt-5.4",
+      initialInput: "hello"
     });
   });
 });
