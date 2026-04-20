@@ -4,7 +4,7 @@ import type { ReasoningEffort } from "@pandelis/codex-web-sdk";
 
 import { useChatContext } from "../context";
 
-const REASONING_OPTIONS: ReasoningEffort[] = ["minimal", "low", "medium", "high"];
+const REASONING_OPTIONS: ReasoningEffort[] = ["minimal", "low", "medium", "high", "xhigh"];
 
 export function ReasoningSelector({
   className,
@@ -38,7 +38,7 @@ export function ReasoningSelector({
       >
         {REASONING_OPTIONS.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {option === "xhigh" ? "x-high" : option}
           </option>
         ))}
       </select>

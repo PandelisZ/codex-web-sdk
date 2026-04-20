@@ -48,7 +48,7 @@ const STARTER_PROMPTS = [
   "What MCP transports work in the browser vs Node?"
 ];
 
-const REASONING_OPTIONS = ["minimal", "low", "medium", "high"] as const;
+const REASONING_OPTIONS = ["minimal", "low", "medium", "high", "xhigh"] as const;
 type InspectorPanel = "settings" | "tools" | "mcp" | "events" | null;
 
 function getPrimaryComposerLabel(args: {
@@ -601,7 +601,7 @@ export function Workspace({
                     <SelectContent>
                       {REASONING_OPTIONS.map((option) => (
                         <SelectItem key={option} value={option}>
-                          {option}
+                          {option === "xhigh" ? "x-high" : option}
                         </SelectItem>
                       ))}
                     </SelectContent>

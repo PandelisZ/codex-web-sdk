@@ -20,7 +20,7 @@ export type Usage = {
 export type ItemStatus = "in_progress" | "completed" | "failed";
 export type CodexRuntimeKind = "browser" | "node";
 export type ToolSourceKind = "local" | "mcp";
-export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
 
 export type ReasoningConfig = {
