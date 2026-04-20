@@ -12,7 +12,9 @@
     "test": "pnpm build:upstream && pnpm build:wasm && pnpm build:sdk && pnpm exec vitest run --config vitest.config.ts",
     "test:demo": "pnpm build:upstream && pnpm build:wasm && pnpm build:sdk && pnpm exec vitest run --config vitest.config.ts apps/demo/src/**/*.test.tsx",
     "playwright:install": "pnpm exec playwright install chromium",
-    "test:e2e": "pnpm build && node ./scripts/demo-e2e.mjs"
+    "test:e2e": "pnpm build && node ./scripts/demo-e2e.mjs",
+    "release": "node ./scripts/release-packages.mjs",
+    "release:patch": "node ./scripts/release-packages.mjs patch"
   },
   "pnpm": {
     "allowBuilds": {
