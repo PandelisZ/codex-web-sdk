@@ -1,6 +1,6 @@
 {
   "name": "@pandelis/codex-web-sdk",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,6 +13,9 @@
       "import": "./dist/node/index.js",
       "types": "./dist/node/index.d.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "pnpm exec vitest run --root ../.. --config vitest.config.ts"

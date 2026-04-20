@@ -55,18 +55,25 @@ async function main() {
   console.log("Refreshing pnpm lockfile...");
   await run("pnpm", ["install", "--lockfile-only"]);
 
-  console.log("Publishing packages to npm...");
-  const publishFilters = versionPlan.flatMap((pkg) => ["--filter", pkg.name]);
-  await run("pnpm", [
-    "-r",
-    ...publishFilters,
-    "publish",
-    "--access",
-    "public",
-    "--no-git-checks",
-    "--report-summary",
-    ...publishArgs
-  ]);
+  const npmUser = (await capture("npm", ["whoami"])).trim();
+  console.log(`Publishing packages to npm as ${npmUser}...`);
+  for (const pkg of versionPlan) {
+    const publishedVersion = await getPublishedVersion(pkg.name);
+    if (publishedVersion === pkg.nextVersion) {
+      console.log(`  skipping ${pkg.name}@${pkg.nextVersion} (already published)`);
+      continue;
+    }
+    if (publishedVersion && compareVersions(publishedVersion, pkg.nextVersion) > 0) {
+      throw new Error(
+        `${pkg.name}@${publishedVersion} is already published, which is newer than the target version ${pkg.nextVersion}.`
+      );
+    }
+
+    console.log(`  publishing ${pkg.name}@${pkg.nextVersion}`);
+    await run("npm", ["publish", "--access", "public", ...publishArgs], {
+      cwd: path.dirname(pkg.manifestPath)
+    });
+  }
 
   console.log("Release complete.");
 }
@@ -123,10 +130,33 @@ function isExactVersion(value) {
   return /^\d+\.\d+\.\d+$/.test(value);
 }
 
-function run(command, args) {
+async function getPublishedVersion(packageName) {
+  try {
+    return (await capture("npm", ["view", packageName, "version"])).trim();
+  } catch (error) {
+    if (error.message.includes("E404")) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function compareVersions(left, right) {
+  const leftParts = left.split(".").map(Number);
+  const rightParts = right.split(".").map(Number);
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    const delta = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
+    if (delta !== 0) {
+      return delta;
+    }
+  }
+  return 0;
+}
+
+function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: rootDir,
+      cwd: options.cwd ?? rootDir,
       stdio: "inherit"
     });
 
@@ -140,6 +170,39 @@ function run(command, args) {
       reject(
         new Error(
           `${command} ${args.join(" ")} failed with ${signal ? `signal ${signal}` : `exit code ${code}`}.`
+        )
+      );
+    });
+  });
+}
+
+function capture(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const child = spawn(command, args, {
+      cwd: options.cwd ?? rootDir,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+
+      reject(
+        new Error(
+          `${command} ${args.join(" ")} failed with ${signal ? `signal ${signal}` : `exit code ${code}`}.
+${stderr || stdout}`.trim()
         )
       );
     });

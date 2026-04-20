@@ -1,95 +1,217 @@
-# @pandelis/codex-web-sdk
+# `@pandelis/codex-web-sdk`
 
-Browser-oriented SDK for running a Codex-style multi-turn agent with a Rust/WASM runtime, a TypeScript wrapper, and a real browser demo wired to the live Responses API.
+Ever thought, "Gosh i wish i could just use the Codex harness in my chat app instead of needing to re-engineer an entire agentic loop from scratch for the 5th time"
 
-## Workspace layout
+Well now you can.
 
-- `vendor/openai-codex`: vendored upstream `openai/codex` source.
-- `xtask/codex-web-sdk-xtask`: native helper that compiles against upstream Codex crates and exports protocol types.
-- `crates/codex-web-sdk-wasm`: browser-safe runtime state machine compiled to WebAssembly.
-- `packages/codex-web-sdk`: TypeScript SDK around the WASM runtime, published as `@pandelis/codex-web-sdk`.
-- `apps/demo`: Vite/React demo wired to either a live transport or a test-only mock transport.
+This repo packages a browser-friendly Codex runtime, a React wrapper, and some UI building blocks so you can drop a real multi-turn agent into your app without rebuilding:
 
-## Commands
+- streamed assistant output
+- multi-turn thread state
+- function tool calls
+- MCP server integration
+- React hooks for chat/agent flows
+- optional prebuilt UI primitives
+
+## Install
+
+Pick the layer you want:
+
+```bash
+npm install @pandelis/codex-web-sdk
+```
+
+```bash
+npm install @pandelis/codex-web-sdk @pandelis/codex-web-sdk-react
+```
+
+```bash
+npm install @pandelis/codex-web-sdk @pandelis/codex-web-sdk-react @pandelis/codex-web-sdk-ui
+```
+
+You will need access to the OpenAI Responses API.
+
+For quick prototypes you can pass an `apiKey` directly.
+
+For production browser apps, point `baseUrl` at your own backend or proxy instead of shipping a permanent API key to the client.
+
+## Quick Start
+
+If you just want a Codex-style thread in plain TypeScript:
+
+```ts
+import { createCodexClient, createTool } from "@pandelis/codex-web-sdk";
+
+const client = createCodexClient({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: "gpt-5"
+});
+
+const thread = client.startThread({
+  systemPrompt: "You are a senior coding assistant. Be concise and practical.",
+  tools: [
+    createTool<{ city: string }>({
+      name: "lookup_weather",
+      description: "Look up the current weather for a city.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          city: { type: "string" }
+        },
+        required: ["city"]
+      },
+      async execute(input) {
+        return {
+          city: input.city,
+          forecast: "Sunny",
+          temperatureC: 27
+        };
+      }
+    })
+  ]
+});
+
+const result = await thread.run("Plan a half-day trip in Limassol for tomorrow.");
+
+console.log(result.finalResponse);
+console.log(result.usage);
+```
+
+If you want to stream events instead:
+
+```ts
+const { events } = await thread.runStreamed("Help me debug this TypeScript error.");
+let text = "";
+
+for await (const event of events) {
+  if (event.type === "text.delta") {
+    text += event.delta;
+  }
+}
+
+console.log(text);
+```
+
+## React
+
+If your app is already React-based, use the hooks package and let it manage the thread lifecycle for you:
+
+```tsx
+import { CodexProvider, useCodexAgent } from "@pandelis/codex-web-sdk-react";
+
+function Chat() {
+  const agent = useCodexAgent({
+    config: {
+      model: "gpt-5",
+      systemPrompt: "You are helping the user build software.",
+      tools: [
+        {
+          name: "lookup_weather",
+          async execute(input) {
+            return { ok: true, input };
+          }
+        }
+      ]
+    },
+    initialInput: "Build me a launch checklist for this repo."
+  });
+
+  return (
+    <div>
+      <button onClick={() => agent.submit()}>Run</button>
+      <pre>{agent.messages.map((message) => message.content).join("\n\n")}</pre>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <CodexProvider
+      config={{
+        apiKey: import.meta.env.VITE_OPENAI_API_KEY
+      }}
+    >
+      <Chat />
+    </CodexProvider>
+  );
+}
+```
+
+`useCodexAgent()` is the easiest starting point.
+
+If you want more control, the React package also exposes:
+
+- `useCodexThread()` for low-level thread state
+- `useCodexChat()` for chat-oriented state and actions
+- `CodexProvider` for sharing a client and persistence adapter
+
+## UI Package
+
+If you do not want to build the whole chat surface yourself, the UI package exports ready-made pieces:
+
+- `ChatTranscript`
+- `ChatComposer`
+- `ChatStatus`
+- `SettingsPanel`
+- `ModelSelector`
+- `ReasoningSelector`
+- `ToolEditor`
+- `McpServerList`
+- `EventInspector`
+
+These are meant to be composed into your own product UI, not force you into one rigid shell.
+
+## MCP And Tools
+
+You can attach local tools with `tools`, or wire in MCP servers with `mcpServers`.
+
+Supported MCP transport descriptors include:
+
+- `streamable-http`
+- `sse`
+- `websocket`
+- `stdio`
+
+That means you can start simple with local functions, then grow into MCP-backed capabilities without changing the rest of your app architecture.
+
+## Local Development
+
+If you are working in this repo itself:
 
 ```bash
 pnpm install
 cargo install wasm-bindgen-cli --version 0.2.118
 pnpm playwright:install
+```
 
+Then use:
+
+```bash
 pnpm build
 pnpm test
 pnpm test:e2e
 pnpm dev
 ```
 
-`pnpm build` and `pnpm test` can run concurrently. The upstream protocol export and copy steps are guarded by an xtask file lock so one process does not read partially regenerated artifacts from another.
+Workspace layout:
 
-## React Hook
+- `packages/codex-web-sdk`: core TypeScript SDK
+- `packages/codex-web-sdk-react`: React hooks and provider
+- `packages/codex-web-sdk-ui`: composable UI components
+- `apps/demo`: demo app
+- `crates/codex-web-sdk-wasm`: browser-safe WASM runtime
+- `xtask/codex-web-sdk-xtask`: upstream protocol export helpers
 
-For AI SDK-style UI state, import the React subpath and use `useCodexAgent`:
+## What This Is
 
-```ts
-import { useCodexAgent } from "@pandelis/codex-web-sdk/react";
+This is not "the full Codex CLI stuffed into a browser tab".
 
-const agent = useCodexAgent({
-  agentOptions: {
-    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY
-  },
-  threadOptions: {
-    tools: [
-      {
-        name: "lookup_weather",
-        execute: async (input) => {
-          return { ok: true, input };
-        }
-      }
-    ]
-  },
-  initialInput: "Plan a Saturday picnic in Limassol."
-});
-```
+It is the useful part you actually want in product code:
 
-The hook tracks `messages`, `status`, `events`, `usage`, `submit()`, `stop()`, and `reset()` while reusing the same multi-turn thread under the hood.
+- the agent loop
+- the thread state
+- the streaming events
+- the tool calling
+- the browser-safe runtime layer
 
-## Live Browser E2E
-
-`pnpm test:e2e` runs the built demo in Chromium against the real Responses API.
-
-- It requires `OPENAI_API_KEY` in the shell environment.
-- The browser never receives the raw key directly.
-- The E2E runner starts a local proxy that forwards `/v1/responses` to OpenAI with streaming preserved and CORS enabled for the demo page.
-
-## Static GitHub Pages Demo
-
-The demo is a static Vite app and can be hosted on GitHub Pages without a backend. In that mode:
-
-- the page is served from `apps/demo/dist`
-- asset URLs are rebased automatically for the repository path
-- API requests go directly from the browser to OpenAI unless the user overrides `Base URL`
-- the hosted demo user must paste an API key into the settings panel
-
-This repo includes `.github/workflows/gh-pages.yml`, which builds the workspace and deploys the demo on pushes to `main` or via manual dispatch.
-
-For a local check of the project-page path, replace `codex-web-sdk` with your repository name:
-
-```bash
-VITE_PUBLIC_BASE=/codex-web-sdk/ pnpm build
-pnpm --filter codex-web-sdk-demo exec vite preview --host 127.0.0.1 --port 4173
-```
-
-## Upstream WASM Boundary
-
-The repo vendors the real `openai/codex` Rust workspace and reuses its protocol artifacts, but the native `codex-core` runtime does not currently compile to `wasm32-unknown-unknown` because its dependency graph still includes native Tokio/Mio networking and OS/process facilities. The WebAssembly runtime in this repo is the browser-safe runtime layer tested against the real API.
-
-## Scope
-
-This repo does not try to force the full native Codex CLI into the browser. Instead it reuses vendored upstream Codex protocol artifacts and exposes a browser-specific runtime that supports:
-
-- multi-turn threads
-- streamed text updates
-- function tool calls
-- tool-result turn continuation
-- browser/demo verification against a mock transport
-
-`pnpm test:e2e` launches the built demo in a local preview server, drives Chromium, verifies the streamed UI, and writes a screenshot to `output/playwright/demo-e2e.png`.
+If your goal is "put a Codex-style agent inside my app", this is the part you can use directly.
