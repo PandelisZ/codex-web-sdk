@@ -1,15 +1,17 @@
+import Codex from "./client";
+
+export default Codex;
+export { Codex };
 export { AsyncQueue } from "./asyncQueue";
-export { CodexClient, CodexThread, CodexWeb, Thread, createCodexClient } from "./thread";
 export { createBrowserRuntimeAdapter } from "./runtime/adapters";
-export { createFetchTransport, FetchResponsesTransport } from "./transport";
+export { createFetchTransport, FetchResponsesTransport } from "./core/transport";
 export { MockResponsesTransport, createDemoMockTransport } from "./mockTransport";
-export { createTool } from "./tools";
+export { toTool } from "./tools";
 export { createMcpRegistry, McpRegistry } from "./mcp/registry";
+export { CodexThread, Threads } from "./threads";
 export type {
-  AgentOptions,
-  CodexClientConfig,
+  CodexOptions,
   CodexRuntimeKind,
-  CodexThreadConfig,
   CreateMcpRegistryOptions,
   JsonSchema,
   JsonValue,
@@ -21,17 +23,16 @@ export type {
   RawResponsesStreamEvent,
   ResponsesRequest,
   ResponsesTransport,
-  RunOptions,
   RunResult,
   SerializableHeaders,
-  SerializableThreadConfig,
+  SerializableThreadOptions,
   StreamedRunResult,
-  ThreadConfigUpdate,
   ThreadEvent,
   ThreadItem,
   ThreadOptions,
   ThreadRunOptions,
   ThreadSnapshot,
+  ThreadUpdate,
   ToolDefinition,
   ToolExecutionContext,
   ToolSource,

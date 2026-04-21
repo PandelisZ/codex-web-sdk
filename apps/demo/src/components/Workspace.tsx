@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { PanelLeft } from "lucide-react";
 
-import { createBrowserRuntimeAdapter } from "@pandelis/codex-web-sdk";
+import Codex, { createBrowserRuntimeAdapter } from "@pandelis/codex-web-sdk";
 import { useCodexChat } from "@pandelis/codex-web-sdk-react";
 import {
   ChatMessageList,
@@ -41,7 +41,11 @@ import {
   writeStoredApiKey,
   type WorkspaceConfig
 } from "../lib/storage";
-import { generateToolSchemaFromDescription, toolDraftsToDefinitions } from "../lib/toolDrafts";
+import {
+  generateToolCodeFromDescription,
+  generateToolSchemaFromDescription,
+  toolDraftsToDefinitions
+} from "../lib/toolDrafts";
 
 const STARTER_PROMPTS = [
   "Explain the architecture of this SDK workspace.",
@@ -92,9 +96,9 @@ function shouldSubmitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>): boolean
 }
 
 export function Workspace({
-  wasmUrl,
+  wasmURL,
   transport,
-  agentOptions,
+  codexOptions,
   initialApiKey,
   activeSessionId,
   onSessionsChange,
@@ -104,6 +108,7 @@ export function Workspace({
   runtimeDefaults
 }: WorkspacePaneProps): JSX.Element {
   const [apiKey, setApiKey] = useState(() => readStoredApiKey() || initialApiKey || "");
+  const [baseURL, setBaseURL] = useState(() => runtimeDefaults.baseURL ?? codexOptions?.baseURL ?? "");
   const [toolDrafts, setToolDrafts] = useState<ToolEditorValue[]>(runtimeDefaults.toolDrafts);
   const [mcpServers, setMcpServers] = useState(runtimeDefaults.mcpServers);
   const [sessionName, setSessionName] = useState("Current workspace");
@@ -112,6 +117,8 @@ export function Workspace({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [generatingSchemaForId, setGeneratingSchemaForId] = useState<string | null>(null);
+  const [generatingCodeForId, setGeneratingCodeForId] = useState<string | null>(null);
+  const [toolGenerationErrors, setToolGenerationErrors] = useState<Record<string, string | undefined>>({});
   const [mcpStatuses, setMcpStatuses] = useState<
     Array<{
       serverId: string;
@@ -122,43 +129,51 @@ export function Workspace({
     }>
   >([]);
 
+  const client = useMemo(
+    () =>
+      new Codex({
+        ...codexOptions,
+        apiKey: apiKey || undefined,
+        baseURL: baseURL || codexOptions?.baseURL,
+        transport,
+        wasmURL
+      }),
+    [apiKey, baseURL, codexOptions, transport, wasmURL]
+  );
+
   const chat = useCodexChat({
+    client,
     sessionId: activeSessionId,
     initialInput: runtimeDefaults.prompt,
-    config: {
-      ...agentOptions,
-      apiKey: apiKey || undefined,
-      baseUrl: runtimeDefaults.baseUrl ?? agentOptions?.baseUrl,
+    threadOptions: {
       model: runtimeDefaults.model,
       reasoning: runtimeDefaults.reasoning,
-      systemPrompt: runtimeDefaults.systemPrompt,
+      instructions: runtimeDefaults.instructions,
       tools: toolDraftsToDefinitions(runtimeDefaults.toolDrafts),
-      mcpServers: runtimeDefaults.mcpServers,
-      transport,
-      wasmUrl
+      mcpServers: runtimeDefaults.mcpServers
     }
   });
 
   const {
-    config: chatConfig,
     events: chatEvents,
     input: chatInput,
     messages: chatMessages,
     rawEvents: chatRawEvents,
     reset: resetChat,
-    setConfig: applyChatConfig,
     setInput: applyChatInput,
     setMcpServers: applyChatMcpServers,
     setReasoning: applyReasoning,
+    setThreadOptions: applyThreadOptions,
+    threadOptions: chatThreadOptions,
     setTools: applyTools
   } = chat;
 
   const workspaceRef = useRef<WorkspaceConfig>(runtimeDefaults);
   const workspaceSignature = JSON.stringify({
-    baseUrl: chatConfig.baseUrl,
-    model: chatConfig.model,
-    reasoning: chatConfig.reasoning,
-    systemPrompt: chatConfig.systemPrompt,
+    baseURL,
+    model: chatThreadOptions.model,
+    reasoning: chatThreadOptions.reasoning,
+    instructions: chatThreadOptions.instructions,
     prompt: chatInput,
     toolDrafts,
     mcpServers
@@ -166,10 +181,7 @@ export function Workspace({
 
   useEffect(() => {
     writeStoredApiKey(apiKey);
-    applyChatConfig({
-      apiKey: apiKey || undefined
-    });
-  }, [apiKey, applyChatConfig]);
+  }, [apiKey]);
 
   useEffect(() => {
     applyTools(toolDraftsToDefinitions(toolDrafts));
@@ -202,19 +214,15 @@ export function Workspace({
     const record = loadSessionRecord(activeSessionId);
     if (!record) {
       resetChat();
+      setBaseURL(runtimeDefaults.baseURL ?? codexOptions?.baseURL ?? "");
       setToolDrafts(runtimeDefaults.toolDrafts);
       setMcpServers(runtimeDefaults.mcpServers);
-      applyChatConfig({
-        ...agentOptions,
-        apiKey: apiKey || undefined,
-        baseUrl: runtimeDefaults.baseUrl,
+      applyThreadOptions({
         model: runtimeDefaults.model,
         reasoning: runtimeDefaults.reasoning,
-        systemPrompt: runtimeDefaults.systemPrompt,
+        instructions: runtimeDefaults.instructions,
         tools: toolDraftsToDefinitions(runtimeDefaults.toolDrafts),
-        mcpServers: runtimeDefaults.mcpServers,
-        transport,
-        wasmUrl
+        mcpServers: runtimeDefaults.mcpServers
       });
       applyChatInput(runtimeDefaults.prompt);
       setSessionName("Current workspace");
@@ -222,36 +230,32 @@ export function Workspace({
     }
 
     setSessionName(record.name);
+    setBaseURL(record.workspace.baseURL ?? codexOptions?.baseURL ?? "");
     setToolDrafts(record.workspace.toolDrafts);
     setMcpServers(record.workspace.mcpServers);
-    applyChatConfig({
-      apiKey: apiKey || undefined,
-      baseUrl: record.workspace.baseUrl,
+    applyThreadOptions({
       model: record.workspace.model,
       reasoning: record.workspace.reasoning,
-      systemPrompt: record.workspace.systemPrompt,
+      instructions: record.workspace.instructions,
       tools: toolDraftsToDefinitions(record.workspace.toolDrafts),
       mcpServers: record.workspace.mcpServers
     });
     applyChatInput(record.workspace.prompt);
   }, [
     activeSessionId,
-    agentOptions,
-    apiKey,
-    applyChatConfig,
     applyChatInput,
+    applyThreadOptions,
+    codexOptions,
     resetChat,
-    runtimeDefaults,
-    transport,
-    wasmUrl
+    runtimeDefaults
   ]);
 
   useEffect(() => {
     const nextWorkspace: WorkspaceConfig = {
-      baseUrl: chatConfig.baseUrl,
-      model: chatConfig.model ?? DEFAULT_MODEL,
-      reasoning: chatConfig.reasoning ?? DEFAULT_REASONING,
-      systemPrompt: chatConfig.systemPrompt ?? "",
+      baseURL,
+      model: chatThreadOptions.model ?? DEFAULT_MODEL,
+      reasoning: chatThreadOptions.reasoning ?? DEFAULT_REASONING,
+      instructions: chatThreadOptions.instructions ?? "",
       prompt: chatInput,
       toolDrafts,
       mcpServers
@@ -276,10 +280,10 @@ export function Workspace({
         id: activeSessionId,
         name: existing?.name ?? sessionName,
         workspace: {
-          baseUrl: chatConfig.baseUrl,
-          model: chatConfig.model ?? DEFAULT_MODEL,
-          reasoning: chatConfig.reasoning ?? DEFAULT_REASONING,
-          systemPrompt: chatConfig.systemPrompt ?? "",
+          baseURL,
+          model: chatThreadOptions.model ?? DEFAULT_MODEL,
+          reasoning: chatThreadOptions.reasoning ?? DEFAULT_REASONING,
+          instructions: chatThreadOptions.instructions ?? "",
           prompt: chatInput,
           toolDrafts,
           mcpServers
@@ -287,10 +291,10 @@ export function Workspace({
         chat: existing?.chat ?? null
       })
     );
-  }, [activeSessionId, chatConfig.baseUrl, chatConfig.model, chatConfig.reasoning, chatConfig.systemPrompt, chatInput, mcpServers, onSessionsChange, sessionName, toolDrafts]);
+  }, [activeSessionId, baseURL, chatInput, chatThreadOptions.instructions, chatThreadOptions.model, chatThreadOptions.reasoning, mcpServers, onSessionsChange, sessionName, toolDrafts]);
 
   const hasConfiguredTransport =
-    Boolean(transport) || Boolean(chatConfig.baseUrl) || Boolean(apiKey) || Boolean(agentOptions?.transport);
+    Boolean(transport) || Boolean(baseURL) || Boolean(apiKey) || Boolean(codexOptions?.transport);
   const hasMessages = chatMessages.length > 0;
   const primaryComposerLabel = getPrimaryComposerLabel({
     hasConfiguredTransport,
@@ -301,18 +305,23 @@ export function Workspace({
   const handleGenerateSchema = useCallback(
     async (toolId: string, description: string) => {
       setGeneratingSchemaForId(toolId);
+      setToolGenerationErrors((current) => ({ ...current, [toolId]: undefined }));
       try {
+        const tool = toolDrafts.find((entry) => entry.id === toolId);
         const nextSchema = await generateToolSchemaFromDescription({
           description,
-          config: {
+          toolName: tool?.name,
+          toolDescription: tool?.description,
+          options: {
             apiKey: apiKey || undefined,
-            baseUrl: chatConfig.baseUrl,
-            headers: chatConfig.headers,
-            model: chatConfig.model ?? DEFAULT_MODEL,
-            reasoning: chatConfig.reasoning,
-            fetch: chatConfig.fetch
+            baseURL: baseURL || undefined,
+            defaultHeaders: codexOptions?.defaultHeaders,
+            defaultModel: chatThreadOptions.model ?? DEFAULT_MODEL,
+            defaultReasoning: chatThreadOptions.reasoning,
+            fetch: codexOptions?.fetch,
+            transport: codexOptions?.transport ?? transport
           },
-          wasmUrl
+          wasmURL
         });
 
         setToolDrafts((current) =>
@@ -325,11 +334,90 @@ export function Workspace({
               : tool
           )
         );
+        setToolGenerationErrors((current) => ({ ...current, [toolId]: undefined }));
+      } catch (error) {
+        setToolGenerationErrors((current) => ({
+          ...current,
+          [toolId]: error instanceof Error ? error.message : String(error)
+        }));
       } finally {
         setGeneratingSchemaForId(null);
       }
     },
-    [apiKey, chatConfig.baseUrl, chatConfig.fetch, chatConfig.headers, chatConfig.model, chatConfig.reasoning, wasmUrl]
+    [
+      apiKey,
+      baseURL,
+      codexOptions?.defaultHeaders,
+      codexOptions?.fetch,
+      codexOptions?.transport,
+      chatThreadOptions.model,
+      chatThreadOptions.reasoning,
+      toolDrafts,
+      transport,
+      wasmURL
+    ]
+  );
+
+  const handleGenerateCode = useCallback(
+    async (toolId: string, description: string) => {
+      setGeneratingCodeForId(toolId);
+      setToolGenerationErrors((current) => ({ ...current, [toolId]: undefined }));
+      try {
+        const tool = toolDrafts.find((entry) => entry.id === toolId);
+        if (!tool) {
+          throw new Error("Tool draft not found.");
+        }
+
+        const nextCode = await generateToolCodeFromDescription({
+          name: tool.name.trim(),
+          description: tool.description,
+          codeDescription: description,
+          inputSchema: tool.inputSchema,
+          existingCode: tool.code,
+          options: {
+            apiKey: apiKey || undefined,
+            baseURL: baseURL || undefined,
+            defaultHeaders: codexOptions?.defaultHeaders,
+            defaultModel: chatThreadOptions.model ?? DEFAULT_MODEL,
+            defaultReasoning: chatThreadOptions.reasoning,
+            fetch: codexOptions?.fetch,
+            transport: codexOptions?.transport ?? transport
+          },
+          wasmURL
+        });
+
+        setToolDrafts((current) =>
+          current.map((entry) =>
+            entry.id === toolId
+              ? {
+                  ...entry,
+                  code: nextCode
+                }
+              : entry
+          )
+        );
+        setToolGenerationErrors((current) => ({ ...current, [toolId]: undefined }));
+      } catch (error) {
+        setToolGenerationErrors((current) => ({
+          ...current,
+          [toolId]: error instanceof Error ? error.message : String(error)
+        }));
+      } finally {
+        setGeneratingCodeForId(null);
+      }
+    },
+    [
+      apiKey,
+      baseURL,
+      codexOptions?.defaultHeaders,
+      codexOptions?.fetch,
+      codexOptions?.transport,
+      chatThreadOptions.model,
+      chatThreadOptions.reasoning,
+      toolDrafts,
+      transport,
+      wasmURL
+    ]
   );
 
   const handleCreateSession = useCallback(() => {
@@ -378,8 +466,8 @@ export function Workspace({
           onDeleteSession={handleDeleteSession}
           onResetThread={handleResetThread}
           apiKeyLoaded={Boolean(apiKey)}
-          modelLabel={chatConfig.model ?? DEFAULT_MODEL}
-          reasoningLabel={chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
+          modelLabel={chatThreadOptions.model ?? DEFAULT_MODEL}
+          reasoningLabel={chatThreadOptions.reasoning?.effort ?? DEFAULT_REASONING.effort}
         />
       </aside>
 
@@ -407,18 +495,16 @@ export function Workspace({
                   <PanelLeft size={16} />
                   <span>Chats</span>
                 </Button>
-                <span className="metaChip">{chatConfig.model ?? DEFAULT_MODEL}</span>
+                <span className="metaChip">{chatThreadOptions.model ?? DEFAULT_MODEL}</span>
                 <span className="metaChip">
-                  {chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
+                  {chatThreadOptions.reasoning?.effort ?? DEFAULT_REASONING.effort}
                 </span>
                 <Button
                   type="button"
                   variant={activeInspector === "settings" ? "default" : "outline"}
                   size="sm"
                   className="metaChipButton"
-                  onClick={() =>
-                    setActiveInspector((current) => (current === "settings" ? null : "settings"))
-                  }
+                  onClick={() => setActiveInspector((current) => (current === "settings" ? null : "settings"))}
                 >
                   Settings
                 </Button>
@@ -510,8 +596,8 @@ export function Workspace({
                 </Button>
                 <div className="toolbarSelectors">
                   <Select
-                    value={chatConfig.model ?? DEFAULT_MODEL}
-                    onValueChange={(value) => applyChatConfig({ model: value })}
+                    value={chatThreadOptions.model ?? DEFAULT_MODEL}
+                    onValueChange={(value) => applyThreadOptions({ model: value })}
                   >
                     <SelectTrigger className="toolbarSelect">
                       <SelectValue placeholder="Model" />
@@ -526,10 +612,10 @@ export function Workspace({
                   </Select>
 
                   <Select
-                    value={chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
+                    value={chatThreadOptions.reasoning?.effort ?? DEFAULT_REASONING.effort}
                     onValueChange={(value) =>
                       applyReasoning({
-                        ...(chatConfig.reasoning ?? DEFAULT_REASONING),
+                        ...(chatThreadOptions.reasoning ?? DEFAULT_REASONING),
                         effort: value as (typeof REASONING_OPTIONS)[number]
                       })
                     }
@@ -612,8 +698,8 @@ export function Workspace({
               onDeleteSession={handleDeleteSession}
               onResetThread={handleResetThread}
               apiKeyLoaded={Boolean(apiKey)}
-              modelLabel={chatConfig.model ?? DEFAULT_MODEL}
-              reasoningLabel={chatConfig.reasoning?.effort ?? DEFAULT_REASONING.effort}
+              modelLabel={chatThreadOptions.model ?? DEFAULT_MODEL}
+              reasoningLabel={chatThreadOptions.reasoning?.effort ?? DEFAULT_REASONING.effort}
             />
           </SheetContent>
         </Sheet>
@@ -658,27 +744,27 @@ export function Workspace({
                   <label className="field">
                     <span>Base URL</span>
                     <Input
-                      value={chatConfig.baseUrl ?? ""}
+                      value={baseURL}
                       placeholder="https://api.openai.com/v1"
-                      onChange={(event) => applyChatConfig({ baseUrl: event.target.value || undefined })}
+                      onChange={(event) => setBaseURL(event.target.value)}
                     />
                   </label>
                   <label className="field">
-                    <span>System prompt</span>
+                    <span>Instructions</span>
                     <Textarea
                       rows={6}
-                      value={chatConfig.systemPrompt ?? ""}
-                      onChange={(event) => applyChatConfig({ systemPrompt: event.target.value })}
+                      value={chatThreadOptions.instructions ?? ""}
+                      onChange={(event) => applyThreadOptions({ instructions: event.target.value })}
                     />
                   </label>
                   <label className="field checkboxField">
                     <span>Reasoning summary</span>
                     <input
                       type="checkbox"
-                      checked={(chatConfig.reasoning?.summary ?? "auto") !== "none"}
+                      checked={(chatThreadOptions.reasoning?.summary ?? "auto") !== "none"}
                       onChange={(event) =>
                         applyReasoning({
-                          effort: chatConfig.reasoning?.effort ?? "medium",
+                          effort: chatThreadOptions.reasoning?.effort ?? "medium",
                           summary: event.target.checked ? "auto" : "none"
                         })
                       }
@@ -738,13 +824,13 @@ export function Workspace({
                             type="button"
                             className="listButton listButtonLight"
                             onClick={() => {
+                              setBaseURL(preset.config.baseURL ?? "");
                               setToolDrafts(preset.config.toolDrafts);
                               setMcpServers(preset.config.mcpServers);
-                              applyChatConfig({
-                                baseUrl: preset.config.baseUrl,
+                              applyThreadOptions({
                                 model: preset.config.model,
                                 reasoning: preset.config.reasoning,
-                                systemPrompt: preset.config.systemPrompt,
+                                instructions: preset.config.instructions,
                                 tools: toolDraftsToDefinitions(preset.config.toolDrafts),
                                 mcpServers: preset.config.mcpServers
                               });
@@ -767,7 +853,10 @@ export function Workspace({
                   value={toolDrafts}
                   onChange={setToolDrafts}
                   generatingSchemaForId={generatingSchemaForId}
+                  generatingCodeForId={generatingCodeForId}
+                  generationErrorByToolId={toolGenerationErrors}
                   onGenerateSchema={handleGenerateSchema}
+                  onGenerateCode={handleGenerateCode}
                 />
               </div>
             ) : null}

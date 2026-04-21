@@ -1,20 +1,20 @@
 import { createContext, useContext, useMemo } from "react";
 import type { JSX } from "react";
 
-import { createCodexClient } from "@pandelis/codex-web-sdk";
+import Codex from "@pandelis/codex-web-sdk";
 
 import type { CodexProviderProps, CodexProviderValue } from "./types";
 
 const CodexContext = createContext<CodexProviderValue | null>(null);
 
-export function CodexProvider({ children, client, config = {}, persistence }: CodexProviderProps): JSX.Element {
+export function CodexProvider({ children, client, options = {}, persistence }: CodexProviderProps): JSX.Element {
   const value = useMemo(
     () => ({
-      client: client ?? createCodexClient(config),
-      defaultConfig: config,
+      client: client ?? new Codex(options),
+      defaultOptions: options,
       persistence
     }),
-    [client, config, persistence]
+    [client, options, persistence]
   );
 
   return <CodexContext.Provider value={value}>{children}</CodexContext.Provider>;

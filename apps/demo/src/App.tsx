@@ -22,19 +22,19 @@ function getEventLabel(event: unknown): string {
   return JSON.stringify(event, null, 2);
 }
 
-export function App({ wasmUrl, transport, initialInput, agentOptions }: DemoAppProps = {}): JSX.Element {
+export function App({ wasmURL, transport, initialInput, codexOptions }: DemoAppProps = {}): JSX.Element {
   const runtimeConfig = useMemo(() => getRuntimeConfig(), []);
   const runtimeDefaults = useMemo(
     () => createWorkspaceConfig(runtimeConfig, initialInput),
     [initialInput, runtimeConfig]
   );
-  const providerConfig = useMemo(
+  const providerOptions = useMemo(
     () => ({
-      ...agentOptions,
+      ...codexOptions,
       transport,
-      wasmUrl
+      wasmURL
     }),
-    [agentOptions, transport, wasmUrl]
+    [codexOptions, transport, wasmURL]
   );
   const [sessions, setSessions] = useState(() => loadSessions());
   const [presets, setPresets] = useState(() => loadPresets());
@@ -87,13 +87,13 @@ export function App({ wasmUrl, transport, initialInput, agentOptions }: DemoAppP
 
   return (
     <CodexProvider
-      config={providerConfig}
+      options={providerOptions}
       persistence={persistence}
     >
       <Workspace
-        wasmUrl={wasmUrl}
+        wasmURL={wasmURL}
         transport={transport}
-        agentOptions={agentOptions}
+        codexOptions={codexOptions}
         initialApiKey={runtimeConfig.apiKey}
         activeSessionId={activeSessionId}
         onSessionsChange={setSessions}

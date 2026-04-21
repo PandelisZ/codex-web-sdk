@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CodexWeb, MockResponsesTransport, createMcpRegistry } from "../src/index";
+import Codex, { MockResponsesTransport, createMcpRegistry } from "../src/index";
 import type {
   CreateMcpRegistryOptions,
   McpServerDescriptor,
@@ -19,7 +19,7 @@ async function* fromEvents(events: RawResponsesStreamEvent[]): AsyncGenerator<Ra
 
 describe("MCP registry integration", () => {
   it("replaces model and reasoning config between turns", async () => {
-    const wasmUrl = await loadTestWasmModule();
+    const wasmURL = await loadTestWasmModule();
     const requests: ResponsesRequest[] = [];
     const transport = new MockResponsesTransport((request) => {
       requests.push(structuredClone(request));
@@ -63,18 +63,18 @@ describe("MCP registry integration", () => {
       ]);
     });
 
-    const thread = new CodexWeb({
+    const thread = new Codex({
       transport,
-      wasmUrl,
-      model: "gpt-5.1-codex",
-      reasoning: {
+      wasmURL,
+      defaultModel: "gpt-5.1-codex",
+      defaultReasoning: {
         effort: "low",
         summary: "none"
       }
-    }).startThread();
+    }).threads.create();
 
     await thread.run("first");
-    thread.setConfig({
+    thread.update({
       model: "gpt-5.4",
       reasoning: {
         effort: "high",
@@ -96,7 +96,7 @@ describe("MCP registry integration", () => {
   });
 
   it("replaces tool and MCP descriptors between runs", async () => {
-    const wasmUrl = await loadTestWasmModule();
+    const wasmURL = await loadTestWasmModule();
     const adapterCalls: string[] = [];
     const adapter: McpTransportAdapter = {
       runtime: "browser",
@@ -265,11 +265,11 @@ describe("MCP registry integration", () => {
       ]);
     });
 
-    const thread = new CodexWeb({
+    const thread = new Codex({
       transport,
-      wasmUrl,
+      wasmURL,
       runtimeAdapter
-    }).startThread({
+    }).threads.create({
       tools: [
         {
           name: "lookup_local",
@@ -281,7 +281,7 @@ describe("MCP registry integration", () => {
     });
 
     await thread.run("local one");
-    thread.setConfig({
+    thread.update({
       tools: [
         {
           name: "lookup_replaced",
@@ -293,7 +293,7 @@ describe("MCP registry integration", () => {
     });
     await thread.run("local two");
 
-    thread.setConfig({
+    thread.update({
       tools: [],
       mcpServers: [
         {
@@ -304,7 +304,7 @@ describe("MCP registry integration", () => {
       ]
     });
     await thread.run("remote one");
-    thread.setConfig({
+    thread.update({
       mcpServers: [
         {
           id: "server_two",

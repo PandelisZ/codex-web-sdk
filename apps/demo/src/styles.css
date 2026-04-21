@@ -711,6 +711,13 @@ button {
   justify-content: flex-start;
 }
 
+.fieldError {
+  margin: 0;
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .browserToolList {
   display: grid;
   gap: 14px;

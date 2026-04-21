@@ -7,10 +7,10 @@ const PRESETS_STORAGE_KEY = "pandelis-codex-web-sdk-presets";
 const SESSIONS_STORAGE_KEY = "pandelis-codex-web-sdk-sessions";
 
 export type WorkspaceConfig = {
-  baseUrl?: string;
+  baseURL?: string;
   model: string;
   reasoning: ReasoningConfig;
-  systemPrompt: string;
+  instructions: string;
   prompt: string;
   toolDrafts: ToolEditorValue[];
   mcpServers: McpServerDescriptor[];
@@ -29,6 +29,19 @@ export type WorkspaceSessionRecord = {
   workspace: WorkspaceConfig;
   chat: CodexChatSessionSnapshot | null;
   updatedAt: number;
+};
+
+type LegacyWorkspaceConfig = WorkspaceConfig & {
+  baseUrl?: string;
+  systemPrompt?: string;
+};
+
+type LegacyWorkspacePreset = WorkspacePreset & {
+  config: LegacyWorkspaceConfig;
+};
+
+type LegacyWorkspaceSessionRecord = WorkspaceSessionRecord & {
+  workspace: LegacyWorkspaceConfig;
 };
 
 function readJson<T>(key: string, fallback: T): T {
@@ -56,6 +69,56 @@ function writeJson(key: string, value: unknown): void {
   }
 
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function normalizeWorkspaceConfig(config: LegacyWorkspaceConfig): WorkspaceConfig {
+  return {
+    baseURL: config.baseURL ?? config.baseUrl,
+    model: config.model,
+    reasoning: config.reasoning,
+    instructions: config.instructions ?? config.systemPrompt ?? "",
+    prompt: config.prompt,
+    toolDrafts: config.toolDrafts ?? [],
+    mcpServers: config.mcpServers ?? []
+  };
+}
+
+function normalizeSessionSnapshot(snapshot: CodexChatSessionSnapshot | null): CodexChatSessionSnapshot | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  if ("options" in snapshot.thread) {
+    return snapshot;
+  }
+
+  const legacyThread = snapshot.thread as CodexChatSessionSnapshot["thread"] & {
+    config?: {
+      model?: string;
+      reasoning?: ReasoningConfig;
+      systemPrompt?: string;
+      instructions?: string;
+      mcpServers?: McpServerDescriptor[];
+      metadata?: Record<string, unknown>;
+      maxToolRoundtrips?: number;
+    };
+  };
+
+  return {
+    ...snapshot,
+    thread: {
+      threadId: legacyThread.threadId,
+      lastResponseId: legacyThread.lastResponseId,
+      options: {
+        model: legacyThread.config?.model,
+        reasoning: legacyThread.config?.reasoning,
+        instructions: legacyThread.config?.instructions ?? legacyThread.config?.systemPrompt,
+        mcpServers: legacyThread.config?.mcpServers,
+        metadata: legacyThread.config?.metadata as never,
+        maxToolRoundtrips: legacyThread.config?.maxToolRoundtrips
+      }
+    }
+  };
 }
 
 export function readStoredApiKey(): string {
@@ -86,7 +149,10 @@ export function writeStoredApiKey(value: string): void {
 }
 
 export function loadPresets(): WorkspacePreset[] {
-  return readJson(PRESETS_STORAGE_KEY, [] as WorkspacePreset[]);
+  return readJson(PRESETS_STORAGE_KEY, [] as LegacyWorkspacePreset[]).map((preset) => ({
+    ...preset,
+    config: normalizeWorkspaceConfig(preset.config)
+  }));
 }
 
 export function savePresets(presets: WorkspacePreset[]): void {
@@ -94,7 +160,11 @@ export function savePresets(presets: WorkspacePreset[]): void {
 }
 
 export function loadSessions(): WorkspaceSessionRecord[] {
-  return readJson(SESSIONS_STORAGE_KEY, [] as WorkspaceSessionRecord[]);
+  return readJson(SESSIONS_STORAGE_KEY, [] as LegacyWorkspaceSessionRecord[]).map((session) => ({
+    ...session,
+    workspace: normalizeWorkspaceConfig(session.workspace),
+    chat: normalizeSessionSnapshot(session.chat)
+  }));
 }
 
 export function saveSessions(sessions: WorkspaceSessionRecord[]): void {

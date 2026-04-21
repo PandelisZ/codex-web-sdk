@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CodexWeb, MockResponsesTransport } from "../src/index";
+import Codex, { MockResponsesTransport } from "../src/index";
 import type { RawResponsesStreamEvent, ResponsesRequest } from "../src/types";
 import { loadTestWasmModule } from "./loadWasm";
 
@@ -16,9 +16,9 @@ function createAbortError(): Error {
   return error;
 }
 
-describe("CodexWeb", () => {
+describe("Codex threads", () => {
   it("streams tool calls and final text through a multi-step turn", async () => {
-    const wasmUrl = await loadTestWasmModule();
+    const wasmURL = await loadTestWasmModule();
     const requests: ResponsesRequest[] = [];
     const transport = new MockResponsesTransport((request, callIndex) => {
       requests.push(request);
@@ -109,11 +109,11 @@ describe("CodexWeb", () => {
       ]);
     });
 
-    const agent = new CodexWeb({
+    const agent = new Codex({
       transport,
-      wasmUrl
+      wasmURL
     });
-    const thread = agent.startThread({
+    const thread = agent.threads.create({
       tools: [
         {
           name: "lookup",
@@ -137,7 +137,7 @@ describe("CodexWeb", () => {
   });
 
   it("closes the stream cleanly when aborted", async () => {
-    const wasmUrl = await loadTestWasmModule();
+    const wasmURL = await loadTestWasmModule();
     const transport = new MockResponsesTransport(async function* (request) {
       yield {
         type: "response.output_item.added",
@@ -165,11 +165,11 @@ describe("CodexWeb", () => {
       });
     });
 
-    const agent = new CodexWeb({
+    const agent = new Codex({
       transport,
-      wasmUrl
+      wasmURL
     });
-    const thread = agent.startThread();
+    const thread = agent.threads.create();
     const controller = new AbortController();
     const { events } = await thread.runStreamed("Abort me", {
       signal: controller.signal

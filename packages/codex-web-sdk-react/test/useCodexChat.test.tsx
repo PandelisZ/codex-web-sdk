@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import Codex from "@pandelis/codex-web-sdk";
 import { createDemoMockTransport } from "@pandelis/codex-web-sdk";
 import { MockResponsesTransport } from "@pandelis/codex-web-sdk";
 
@@ -9,10 +10,17 @@ import { useCodexChat } from "../src/useCodexChat";
 import { loadTestWasmModule } from "../../codex-web-sdk/test/loadWasm";
 
 function ChatHarness({ wasmUrl }: { wasmUrl: Uint8Array }) {
+  const client = useMemo(
+    () =>
+      new Codex({
+        transport: createDemoMockTransport(),
+        wasmURL: wasmUrl
+      }),
+    [wasmUrl]
+  );
   const chat = useCodexChat({
-    config: {
-      transport: createDemoMockTransport(),
-      wasmUrl,
+    client,
+    threadOptions: {
       tools: [
         {
           name: "weather_lookup",
@@ -61,10 +69,17 @@ describe("useCodexChat", () => {
     const wasmUrl = await loadTestWasmModule();
 
     function ControlHarness() {
+      const client = useMemo(
+        () =>
+          new Codex({
+            transport: createDemoMockTransport(),
+            wasmURL: wasmUrl
+          }),
+        []
+      );
       const chat = useCodexChat({
-        config: {
-          transport: createDemoMockTransport(),
-          wasmUrl,
+        client,
+        threadOptions: {
           tools: [
             {
               name: "weather_lookup",
@@ -110,64 +125,69 @@ describe("useCodexChat", () => {
     const wasmUrl = await loadTestWasmModule();
 
     function EmptyReasoningHarness() {
-      const chat = useCodexChat({
-        config: {
-          transport: new MockResponsesTransport(async function* () {
-            yield {
-              type: "response.output_item.added",
-              item: {
-                id: "reason_1",
-                type: "reasoning",
-                summary: []
-              }
-            };
-            yield {
-              type: "response.output_item.done",
-              item: {
-                id: "reason_1",
-                type: "reasoning",
-                summary: []
-              }
-            };
-            yield {
-              type: "response.output_item.added",
-              item: {
-                id: "msg_1",
-                type: "message",
-                content: []
-              }
-            };
-            yield {
-              type: "response.output_text.delta",
-              item_id: "msg_1",
-              delta: "hello"
-            };
-            yield {
-              type: "response.output_item.done",
-              item: {
-                id: "msg_1",
-                type: "message",
-                content: [
-                  {
-                    type: "output_text",
-                    text: "hello"
-                  }
-                ]
-              }
-            };
-            yield {
-              type: "response.completed",
-              response: {
-                id: "resp_1",
-                usage: {
-                  input_tokens: 1,
-                  output_tokens: 1
+      const client = useMemo(
+        () =>
+          new Codex({
+            transport: new MockResponsesTransport(async function* () {
+              yield {
+                type: "response.output_item.added",
+                item: {
+                  id: "reason_1",
+                  type: "reasoning",
+                  summary: []
                 }
-              }
-            };
+              };
+              yield {
+                type: "response.output_item.done",
+                item: {
+                  id: "reason_1",
+                  type: "reasoning",
+                  summary: []
+                }
+              };
+              yield {
+                type: "response.output_item.added",
+                item: {
+                  id: "msg_1",
+                  type: "message",
+                  content: []
+                }
+              };
+              yield {
+                type: "response.output_text.delta",
+                item_id: "msg_1",
+                delta: "hello"
+              };
+              yield {
+                type: "response.output_item.done",
+                item: {
+                  id: "msg_1",
+                  type: "message",
+                  content: [
+                    {
+                      type: "output_text",
+                      text: "hello"
+                    }
+                  ]
+                }
+              };
+              yield {
+                type: "response.completed",
+                response: {
+                  id: "resp_1",
+                  usage: {
+                    input_tokens: 1,
+                    output_tokens: 1
+                  }
+                }
+              };
+            }),
+            wasmURL: wasmUrl
           }),
-          wasmUrl
-        },
+        []
+      );
+      const chat = useCodexChat({
+        client,
         initialInput: "hello"
       });
 

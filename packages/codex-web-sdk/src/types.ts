@@ -221,46 +221,66 @@ export interface ResponsesTransport {
   streamResponse(request: ResponsesRequest): AsyncIterable<RawResponsesStreamEvent>;
 }
 
-export type CodexSharedConfig = {
+export type CodexOptions = {
   apiKey?: string;
-  baseUrl?: string;
-  headers?: HeadersInit;
-  model?: string;
-  reasoning?: ReasoningConfig;
-  systemPrompt?: string;
-  tools?: ToolDefinition[];
-  mcpServers?: McpServerDescriptor[];
-  metadata?: Record<string, JsonValue>;
+  baseURL?: string;
+  defaultHeaders?: HeadersInit;
+  defaultModel?: string;
+  defaultReasoning?: ReasoningConfig;
+  defaultInstructions?: string;
+  defaultMetadata?: Record<string, JsonValue>;
+  defaultMcpServers?: McpServerDescriptor[];
   transport?: ResponsesTransport;
   fetch?: typeof fetch;
-  wasmUrl?: unknown;
+  wasmURL?: unknown;
+  maxToolRoundtrips?: number;
+  runtimeAdapter?: CodexRuntimeAdapter;
+  mcpRegistry?: McpRegistry;
+  dangerouslyAllowBrowser?: boolean;
+};
+
+export type NormalizedCodexOptions = {
+  apiKey?: string;
+  baseURL?: string;
+  defaultHeaders?: HeadersInit;
+  defaultModel?: string;
+  defaultReasoning?: ReasoningConfig;
+  defaultInstructions?: string;
+  defaultMetadata?: Record<string, JsonValue>;
+  defaultMcpServers?: McpServerDescriptor[];
+  transport?: ResponsesTransport;
+  fetch?: typeof fetch;
+  wasmURL?: unknown;
   maxToolRoundtrips?: number;
   runtimeAdapter?: CodexRuntimeAdapter;
   mcpRegistry?: McpRegistry;
 };
 
-export type CodexClientConfig = CodexSharedConfig;
-
-export type CodexThreadConfig = CodexSharedConfig & {
+export type ThreadOptions = {
+  model?: string;
+  reasoning?: ReasoningConfig;
+  instructions?: string;
+  tools?: ToolDefinition[];
+  mcpServers?: McpServerDescriptor[];
+  metadata?: Record<string, JsonValue>;
+  maxToolRoundtrips?: number;
   threadId?: string | null;
   lastResponseId?: string | null;
 };
 
-export type ThreadConfigUpdate = Partial<CodexThreadConfig>;
+export type ResolvedThreadOptions = ThreadOptions;
+export type ThreadUpdate = Partial<ThreadOptions>;
 
 export type ThreadRunOptions = Partial<
-  Omit<CodexThreadConfig, "threadId" | "lastResponseId" | "runtimeAdapter" | "mcpRegistry">
+  Omit<ThreadOptions, "threadId" | "lastResponseId">
 > & {
   signal?: AbortSignal;
 };
 
-export type SerializableThreadConfig = {
-  apiKey?: string;
-  baseUrl?: string;
-  headers?: SerializableHeaders;
+export type SerializableThreadOptions = {
   model?: string;
   reasoning?: ReasoningConfig;
-  systemPrompt?: string;
+  instructions?: string;
   mcpServers?: McpServerDescriptor[];
   metadata?: Record<string, JsonValue>;
   maxToolRoundtrips?: number;
@@ -269,7 +289,7 @@ export type SerializableThreadConfig = {
 export type ThreadSnapshot = {
   threadId: string | null;
   lastResponseId: string | null;
-  config: SerializableThreadConfig;
+  options: SerializableThreadOptions;
 };
 
 export type RunResult = {
@@ -303,6 +323,40 @@ export interface McpTransportAdapter {
   dispose?(): Promise<void>;
 }
 
-export type AgentOptions = CodexClientConfig;
-export type ThreadOptions = CodexThreadConfig;
+export type LegacyCodexOptions = {
+  apiKey?: string;
+  baseUrl?: string;
+  headers?: HeadersInit;
+  model?: string;
+  reasoning?: ReasoningConfig;
+  systemPrompt?: string;
+  metadata?: Record<string, JsonValue>;
+  mcpServers?: McpServerDescriptor[];
+  transport?: ResponsesTransport;
+  fetch?: typeof fetch;
+  wasmUrl?: unknown;
+  maxToolRoundtrips?: number;
+  runtimeAdapter?: CodexRuntimeAdapter;
+  mcpRegistry?: McpRegistry;
+  dangerouslyAllowBrowser?: boolean;
+};
+
+export type LegacyThreadOptions = {
+  model?: string;
+  reasoning?: ReasoningConfig;
+  systemPrompt?: string;
+  tools?: ToolDefinition[];
+  mcpServers?: McpServerDescriptor[];
+  metadata?: Record<string, JsonValue>;
+  maxToolRoundtrips?: number;
+  threadId?: string | null;
+  lastResponseId?: string | null;
+};
+
+export type CodexClientConfig = CodexOptions;
+export type CodexThreadConfig = ThreadOptions;
+export type ThreadConfigUpdate = ThreadUpdate;
+export type AgentOptions = CodexOptions;
+export type SerializableThreadConfig = SerializableThreadOptions;
+export type ThreadOptionsLegacy = ThreadOptions;
 export type RunOptions = ThreadRunOptions;

@@ -50,7 +50,7 @@ describe("demo workspace persistence helpers", () => {
             effort: "medium",
             summary: "auto"
           },
-          systemPrompt: "",
+          instructions: "",
           prompt: "hello",
           toolDrafts: [],
           mcpServers: []
@@ -67,7 +67,7 @@ describe("demo workspace persistence helpers", () => {
           effort: "medium",
           summary: "auto"
         },
-        systemPrompt: "",
+        instructions: "",
         prompt: "hello",
         toolDrafts: [],
         mcpServers: []

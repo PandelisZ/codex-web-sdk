@@ -12,7 +12,10 @@ type BrowserToolEditorProps = {
   value: ToolEditorValue[];
   onChange: (value: ToolEditorValue[]) => void;
   generatingSchemaForId?: string | null;
+  generatingCodeForId?: string | null;
+  generationErrorByToolId?: Record<string, string | undefined>;
   onGenerateSchema: (toolId: string, description: string) => Promise<void>;
+  onGenerateCode: (toolId: string, description: string) => Promise<void>;
 };
 
 function updateTool(
@@ -27,7 +30,10 @@ export function BrowserToolEditor({
   value,
   onChange,
   generatingSchemaForId,
-  onGenerateSchema
+  generatingCodeForId,
+  generationErrorByToolId,
+  onGenerateSchema,
+  onGenerateCode
 }: BrowserToolEditorProps): JSX.Element {
   return (
     <section className="browserToolEditor">
@@ -100,6 +106,40 @@ export function BrowserToolEditor({
                 {generatingSchemaForId === tool.id ? "Generating schema..." : "Generate schema"}
               </Button>
             </div>
+
+            <label className="toolEditorField">
+              <span>Describe code in English</span>
+              <Textarea
+                rows={4}
+                value={tool.codeDescription ?? ""}
+                placeholder="Example: validate the city input, fetch weather from a public API, and return forecast plus normalized location details"
+                onChange={(event) =>
+                  onChange(
+                    updateTool(value, tool.id, (entry) => ({
+                      ...entry,
+                      codeDescription: event.target.value
+                    }))
+                  )
+                }
+              />
+            </label>
+
+            <div className="toolEditorActions toolEditorActionsStart">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={generatingCodeForId === tool.id}
+                onClick={() => void onGenerateCode(tool.id, tool.codeDescription ?? tool.description ?? "")}
+              >
+                {generatingCodeForId === tool.id ? "Generating code..." : "Generate code"}
+              </Button>
+            </div>
+
+            {generationErrorByToolId?.[tool.id] ? (
+              <p className="fieldError" role="alert">
+                {generationErrorByToolId[tool.id]}
+              </p>
+            ) : null}
 
             <div className="toolEditorField">
               <span>Input schema</span>

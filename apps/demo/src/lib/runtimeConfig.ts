@@ -1,4 +1,4 @@
-import type { AgentOptions, McpServerDescriptor, ReasoningConfig, ResponsesTransport } from "@pandelis/codex-web-sdk";
+import type { CodexOptions, McpServerDescriptor, ReasoningConfig, ResponsesTransport } from "@pandelis/codex-web-sdk";
 import type { ToolEditorValue } from "@pandelis/codex-web-sdk-ui";
 
 import type { WorkspaceConfig, WorkspacePreset, WorkspaceSessionRecord } from "./storage";
@@ -19,26 +19,26 @@ export const MODEL_OPTIONS = [
 
 export type RuntimeConfig = {
   apiKey?: string;
-  baseUrl?: string;
+  baseURL?: string;
   model?: string;
   reasoning?: ReasoningConfig;
-  systemPrompt?: string;
+  instructions?: string;
   initialInput?: string;
   tools?: ToolEditorValue[];
   mcpServers?: McpServerDescriptor[];
 };
 
 export type DemoAppProps = {
-  wasmUrl?: AgentOptions["wasmUrl"];
+  wasmURL?: CodexOptions["wasmURL"];
   transport?: ResponsesTransport;
   initialInput?: string;
-  agentOptions?: Partial<AgentOptions>;
+  codexOptions?: Partial<CodexOptions>;
 };
 
 export type WorkspacePaneProps = {
-  wasmUrl?: AgentOptions["wasmUrl"];
+  wasmURL?: CodexOptions["wasmURL"];
   transport?: ResponsesTransport;
-  agentOptions?: Partial<AgentOptions>;
+  codexOptions?: Partial<CodexOptions>;
   initialApiKey?: string;
   activeSessionId: string;
   onSessionsChange: (sessions: WorkspaceSessionRecord[]) => void;
@@ -48,12 +48,36 @@ export type WorkspacePaneProps = {
   runtimeDefaults: WorkspaceConfig;
 };
 
+type LegacyRuntimeConfig = RuntimeConfig & {
+  baseUrl?: string;
+  systemPrompt?: string;
+};
+
 declare global {
   interface Window {
-    __PANDELIS_CODEX_WEB_CONFIG__?: RuntimeConfig;
+    __PANDELIS_CODEX_WEB_CONFIG__?: RuntimeConfig | LegacyRuntimeConfig;
   }
 
-  var __PANDELIS_CODEX_WEB_ENV_CONFIG__: RuntimeConfig | undefined;
+  var __PANDELIS_CODEX_WEB_ENV_CONFIG__: RuntimeConfig | LegacyRuntimeConfig | undefined;
+}
+
+function normalizeLegacyRuntimeConfig(runtimeConfig: RuntimeConfig | LegacyRuntimeConfig): RuntimeConfig {
+  return {
+    apiKey: runtimeConfig.apiKey,
+    baseURL: runtimeConfig.baseURL ?? runtimeConfig.baseUrl,
+    model: runtimeConfig.model,
+    reasoning: runtimeConfig.reasoning,
+    instructions: runtimeConfig.instructions ?? runtimeConfig.systemPrompt,
+    initialInput: runtimeConfig.initialInput,
+    tools: runtimeConfig.tools,
+    mcpServers: runtimeConfig.mcpServers
+  };
+}
+
+function compactRuntimeConfig(runtimeConfig: RuntimeConfig): RuntimeConfig {
+  return Object.fromEntries(
+    Object.entries(runtimeConfig).filter(([, value]) => value !== undefined)
+  ) as RuntimeConfig;
 }
 
 export function createId(prefix: string): string {
@@ -65,22 +89,22 @@ export function createId(prefix: string): string {
 }
 
 export function getRuntimeConfig(): RuntimeConfig {
-  const bundledConfig = globalThis.__PANDELIS_CODEX_WEB_ENV_CONFIG__ ?? {};
+  const bundledConfig = normalizeLegacyRuntimeConfig(globalThis.__PANDELIS_CODEX_WEB_ENV_CONFIG__ ?? {});
   const windowConfig =
-    typeof window === "undefined" ? {} : (window.__PANDELIS_CODEX_WEB_CONFIG__ ?? {});
+    typeof window === "undefined" ? {} : normalizeLegacyRuntimeConfig(window.__PANDELIS_CODEX_WEB_CONFIG__ ?? {});
 
   return {
-    ...bundledConfig,
-    ...windowConfig
+    ...compactRuntimeConfig(bundledConfig),
+    ...compactRuntimeConfig(windowConfig)
   };
 }
 
 export function createWorkspaceConfig(runtimeConfig: RuntimeConfig, initialInput?: string): WorkspaceConfig {
   return {
-    baseUrl: runtimeConfig.baseUrl,
+    baseURL: runtimeConfig.baseURL,
     model: runtimeConfig.model ?? DEFAULT_MODEL,
     reasoning: runtimeConfig.reasoning ?? DEFAULT_REASONING,
-    systemPrompt: runtimeConfig.systemPrompt ?? "",
+    instructions: runtimeConfig.instructions ?? "",
     prompt: initialInput ?? runtimeConfig.initialInput ?? DEFAULT_PROMPT,
     toolDrafts: runtimeConfig.tools ?? [],
     mcpServers: runtimeConfig.mcpServers ?? []

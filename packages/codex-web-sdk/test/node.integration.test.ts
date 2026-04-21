@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MockResponsesTransport } from "../src/index";
 import { createNodeRuntimeAdapter } from "../src/node/index";
 import type { RawResponsesStreamEvent } from "../src/types";
-import { CodexWeb } from "../src/thread";
+import Codex from "../src/index";
 import { loadTestWasmModule } from "./loadWasm";
 
 async function* fromEvents(events: RawResponsesStreamEvent[]): AsyncGenerator<RawResponsesStreamEvent> {
@@ -155,7 +155,7 @@ describe("Node MCP runtime adapter", () => {
   });
 
   it("supports mixed local tool and MCP turns", async () => {
-    const wasmUrl = await loadTestWasmModule();
+    const wasmURL = await loadTestWasmModule();
     const server = await withHttpMcpServer();
     const transport = new MockResponsesTransport((request, callIndex) => {
       if (callIndex === 0) {
@@ -276,11 +276,11 @@ describe("Node MCP runtime adapter", () => {
       ]);
     });
 
-    const thread = new CodexWeb({
+    const thread = new Codex({
       transport,
-      wasmUrl,
+      wasmURL,
       runtimeAdapter: createNodeRuntimeAdapter()
-    }).startThread({
+    }).threads.create({
       tools: [
         {
           name: "lookup_local",

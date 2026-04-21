@@ -1,7 +1,7 @@
 import { createMcpRegistry } from "../mcp/registry";
-import { createFetchTransport } from "../transport";
+import { createFetchTransport } from "../core/transport";
 import type {
-  CodexClientConfig,
+  CodexOptions,
   CodexRuntimeKind,
   CreateMcpRegistryOptions,
   McpServerDescriptor,
@@ -13,7 +13,7 @@ import { createWebSocketMcpAdapter } from "../mcp/websocket";
 
 export interface CodexRuntimeAdapter {
   readonly runtime: CodexRuntimeKind;
-  createResponsesTransport(config: CodexClientConfig): ResponsesTransport;
+  createResponsesTransport(config: CodexOptions): ResponsesTransport;
   createMcpRegistry(config: Omit<CreateMcpRegistryOptions, "runtime" | "adapters">): ReturnType<typeof createMcpRegistry>;
   supportsMcpTransport(transport: McpServerDescriptor["transport"]): boolean;
 }

@@ -14,7 +14,7 @@ export function ModelSelector({
   onChange?: (value: string) => void;
 }): JSX.Element {
   const chat = useChatContext();
-  const currentValue = value ?? chat.config.model ?? models[0] ?? "";
+  const currentValue = value ?? chat.threadOptions.model ?? models[0] ?? "";
 
   return (
     <label className={className} data-codex-model-selector="">

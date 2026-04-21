@@ -159,7 +159,7 @@ function mergeSignal(primary: AbortSignal, secondary?: AbortSignal): AbortSignal
 
 export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatResult {
   const provider = useCodexProviderValue();
-  const { thread, config, setConfig, restoreThread } = useCodexThread(options);
+  const { thread, threadOptions, setThreadOptions, restoreThread } = useCodexThread(options);
   const [input, setInput] = useState(options.initialInput ?? "");
   const [messages, setMessages] = useState<CodexChatMessage[]>(options.initialMessages ?? []);
   const [events, setEvents] = useState<ThreadEvent[]>(options.initialEvents ?? []);
@@ -176,7 +176,7 @@ export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatRes
   const latestRawEventsRef = useRef(rawEvents);
   const latestUsageRef = useRef(usage);
   const latestErrorRef = useRef(error);
-  const latestConfigRef = useRef(config);
+  const latestThreadOptionsRef = useRef(threadOptions);
 
   useEffect(() => {
     latestInputRef.current = input;
@@ -197,8 +197,8 @@ export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatRes
     latestErrorRef.current = error;
   }, [error]);
   useEffect(() => {
-    latestConfigRef.current = config;
-  }, [config]);
+    latestThreadOptionsRef.current = threadOptions;
+  }, [threadOptions]);
 
   const applySession = useCallback((session: CodexChatSessionSnapshot) => {
     restoreThread(session.thread);
@@ -264,14 +264,14 @@ export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatRes
 
   const reset = useCallback(() => {
     stop();
-    const currentConfig = latestConfigRef.current;
+    const currentThreadOptions = latestThreadOptionsRef.current;
     const baseSnapshot = {
       threadId: null,
       lastResponseId: null,
-      config: {}
+      options: {}
     };
     restoreThread(baseSnapshot, {
-      ...currentConfig,
+      ...currentThreadOptions,
       threadId: null,
       lastResponseId: null
     });
@@ -459,10 +459,10 @@ export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatRes
     restoreSession(reloadStateRef.current);
     await sendMessage(lastPromptRef.current);
   }, [restoreSession, sendMessage]);
-  const setModel = useCallback((model?: string) => setConfig({ model }), [setConfig]);
-  const setReasoning = useCallback((reasoning?: UseCodexChatResult["config"]["reasoning"]) => setConfig({ reasoning }), [setConfig]);
-  const setTools = useCallback((tools: ToolDefinition[]) => setConfig({ tools }), [setConfig]);
-  const setMcpServers = useCallback((mcpServers: McpServerDescriptor[]) => setConfig({ mcpServers }), [setConfig]);
+  const setModel = useCallback((model?: string) => setThreadOptions({ model }), [setThreadOptions]);
+  const setReasoning = useCallback((reasoning?: UseCodexChatResult["threadOptions"]["reasoning"]) => setThreadOptions({ reasoning }), [setThreadOptions]);
+  const setTools = useCallback((tools: ToolDefinition[]) => setThreadOptions({ tools }), [setThreadOptions]);
+  const setMcpServers = useCallback((mcpServers: McpServerDescriptor[]) => setThreadOptions({ mcpServers }), [setThreadOptions]);
 
   return {
     thread,
@@ -475,7 +475,7 @@ export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatRes
     error,
     usage,
     threadId: thread.id,
-    config,
+    threadOptions,
     sendMessage,
     stop,
     reload,
@@ -484,7 +484,7 @@ export function useCodexChat(options: UseCodexChatOptions = {}): UseCodexChatRes
     setReasoning,
     setTools,
     setMcpServers,
-    setConfig,
+    setThreadOptions,
     restoreSession,
     snapshotSession
   };

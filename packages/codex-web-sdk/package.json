@@ -9,6 +9,14 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./threads": {
+      "import": "./dist/threads.js",
+      "types": "./dist/threads.d.ts"
+    },
+    "./mcp": {
+      "import": "./dist/mcp.js",
+      "types": "./dist/mcp.d.ts"
+    },
     "./node": {
       "import": "./dist/node/index.js",
       "types": "./dist/node/index.d.ts"

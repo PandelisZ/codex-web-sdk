@@ -13,6 +13,7 @@ export type ToolEditorValue = {
   description?: string;
   runtime?: "browser-js";
   schemaDescription?: string;
+  codeDescription?: string;
   inputSchema?: string;
   code?: string;
   output?: string;

@@ -1,21 +1,14 @@
 # `@pandelis/codex-web-sdk`
 
-Ever thought, "Gosh i wish i could just use the Codex harness in my chat app instead of needing to re-engineer an entire agentic loop from scratch for the 5th time"
+Embed a Codex-style threaded agent in a browser app with an API shape closer to the OpenAI SDK family.
 
-Well now you can.
+This workspace ships three layers:
 
-This repo packages a browser-friendly Codex runtime, a React wrapper, and some UI building blocks so you can drop a real multi-turn agent into your app without rebuilding:
-
-- streamed assistant output
-- multi-turn thread state
-- function tool calls
-- MCP server integration
-- React hooks for chat/agent flows
-- optional prebuilt UI primitives
+- `@pandelis/codex-web-sdk`: core client, threads resource, tools, MCP support
+- `@pandelis/codex-web-sdk-react`: provider and hooks for chat/thread state
+- `@pandelis/codex-web-sdk-ui`: composable chat and inspector primitives
 
 ## Install
-
-Pick the layer you want:
 
 ```bash
 npm install @pandelis/codex-web-sdk
@@ -29,28 +22,26 @@ npm install @pandelis/codex-web-sdk @pandelis/codex-web-sdk-react
 npm install @pandelis/codex-web-sdk @pandelis/codex-web-sdk-react @pandelis/codex-web-sdk-ui
 ```
 
-You will need access to the OpenAI Responses API.
+You need access to the OpenAI Responses API.
 
-For quick prototypes you can pass an `apiKey` directly.
+For quick browser prototypes, pass an `apiKey` directly.
 
-For production browser apps, point `baseUrl` at your own backend or proxy instead of shipping a permanent API key to the client.
+For production apps, point `baseURL` at your own backend or proxy instead of shipping a permanent API key to the client.
 
 ## Quick Start
 
-If you just want a Codex-style thread in plain TypeScript:
-
 ```ts
-import { createCodexClient, createTool } from "@pandelis/codex-web-sdk";
+import Codex, { toTool } from "@pandelis/codex-web-sdk";
 
-const client = createCodexClient({
+const client = new Codex({
   apiKey: process.env.OPENAI_API_KEY,
-  model: "gpt-5"
+  defaultModel: "gpt-5"
 });
 
-const thread = client.startThread({
-  systemPrompt: "You are a senior coding assistant. Be concise and practical.",
+const thread = client.threads.create({
+  instructions: "You are a senior coding assistant. Be concise and practical.",
   tools: [
-    createTool<{ city: string }>({
+    toTool<{ city: string }>({
       name: "lookup_weather",
       description: "Look up the current weather for a city.",
       inputSchema: {
@@ -77,7 +68,7 @@ console.log(result.finalResponse);
 console.log(result.usage);
 ```
 
-If you want to stream events instead:
+Stream intermediate events with `runStreamed()`:
 
 ```ts
 const { events } = await thread.runStreamed("Help me debug this TypeScript error.");
@@ -94,16 +85,20 @@ console.log(text);
 
 ## React
 
-If your app is already React-based, use the hooks package and let it manage the thread lifecycle for you:
-
 ```tsx
+import Codex from "@pandelis/codex-web-sdk";
 import { CodexProvider, useCodexAgent } from "@pandelis/codex-web-sdk-react";
+
+const client = new Codex({
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  defaultModel: "gpt-5"
+});
 
 function Chat() {
   const agent = useCodexAgent({
-    config: {
-      model: "gpt-5",
-      systemPrompt: "You are helping the user build software.",
+    client,
+    threadOptions: {
+      instructions: "You are helping the user build software.",
       tools: [
         {
           name: "lookup_weather",
@@ -126,28 +121,24 @@ function Chat() {
 
 export default function App() {
   return (
-    <CodexProvider
-      config={{
-        apiKey: import.meta.env.VITE_OPENAI_API_KEY
-      }}
-    >
+    <CodexProvider options={{ apiKey: import.meta.env.VITE_OPENAI_API_KEY }}>
       <Chat />
     </CodexProvider>
   );
 }
 ```
 
-`useCodexAgent()` is the easiest starting point.
+`useCodexAgent()` is the quickest starting point.
 
-If you want more control, the React package also exposes:
+The React package also exposes:
 
-- `useCodexThread()` for low-level thread state
-- `useCodexChat()` for chat-oriented state and actions
-- `CodexProvider` for sharing a client and persistence adapter
+- `useCodexThread()` for thread lifecycle and snapshots
+- `useCodexChat()` for chat state and actions
+- `CodexProvider` for shared client defaults and persistence
 
 ## UI Package
 
-If you do not want to build the whole chat surface yourself, the UI package exports ready-made pieces:
+`@pandelis/codex-web-sdk-ui` exports composable primitives:
 
 - `ChatTranscript`
 - `ChatComposer`
@@ -159,11 +150,9 @@ If you do not want to build the whole chat surface yourself, the UI package expo
 - `McpServerList`
 - `EventInspector`
 
-These are meant to be composed into your own product UI, not force you into one rigid shell.
-
 ## MCP And Tools
 
-You can attach local tools with `tools`, or wire in MCP servers with `mcpServers`.
+Attach local tools with `tools`, or wire in MCP servers with `mcpServers`.
 
 Supported MCP transport descriptors include:
 
@@ -172,11 +161,16 @@ Supported MCP transport descriptors include:
 - `websocket`
 - `stdio`
 
-That means you can start simple with local functions, then grow into MCP-backed capabilities without changing the rest of your app architecture.
+## Package Structure
+
+Core entrypoints:
+
+- `@pandelis/codex-web-sdk`: `Codex`, `toTool`, shared public types
+- `@pandelis/codex-web-sdk/threads`: thread resource classes and types
+- `@pandelis/codex-web-sdk/mcp`: MCP registry exports
+- `@pandelis/codex-web-sdk/node`: Node runtime adapter helpers
 
 ## Local Development
-
-If you are working in this repo itself:
 
 ```bash
 pnpm install
@@ -184,7 +178,7 @@ cargo install wasm-bindgen-cli --version 0.2.118
 pnpm playwright:install
 ```
 
-Then use:
+Then run:
 
 ```bash
 pnpm build
@@ -201,17 +195,3 @@ Workspace layout:
 - `apps/demo`: demo app
 - `crates/codex-web-sdk-wasm`: browser-safe WASM runtime
 - `xtask/codex-web-sdk-xtask`: upstream protocol export helpers
-
-## What This Is
-
-This is not "the full Codex CLI stuffed into a browser tab".
-
-It is the useful part you actually want in product code:
-
-- the agent loop
-- the thread state
-- the streaming events
-- the tool calling
-- the browser-safe runtime layer
-
-If your goal is "put a Codex-style agent inside my app", this is the part you can use directly.

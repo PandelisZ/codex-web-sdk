@@ -1,19 +1,19 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import type {
-  CodexClient,
+  Codex,
+  CodexOptions,
   CodexThread,
-  CodexClientConfig,
-  CodexThreadConfig,
+  McpServerDescriptor,
   RawResponsesStreamEvent,
   ReasoningConfig,
-  ThreadConfigUpdate,
   ThreadEvent,
+  ThreadOptions,
   ThreadRunOptions,
   ThreadSnapshot,
+  ThreadUpdate,
   ToolDefinition,
-  Usage,
-  McpServerDescriptor
+  Usage
 } from "@pandelis/codex-web-sdk";
 
 export type CodexChatStatus = "idle" | "submitted" | "streaming" | "ready" | "error";
@@ -48,31 +48,31 @@ export type CodexPersistenceAdapter = {
 };
 
 export type CodexProviderValue = {
-  client: CodexClient;
-  defaultConfig: CodexClientConfig;
+  client: Codex;
+  defaultOptions: CodexOptions;
   persistence?: CodexPersistenceAdapter;
 };
 
 export type CodexProviderProps = {
   children: ReactNode;
-  client?: CodexClient;
-  config?: CodexClientConfig;
+  client?: Codex;
+  options?: CodexOptions;
   persistence?: CodexPersistenceAdapter;
 };
 
 export type UseCodexThreadOptions = {
-  client?: CodexClient;
-  config?: CodexThreadConfig;
+  client?: Codex;
+  threadOptions?: ThreadOptions;
   snapshot?: ThreadSnapshot;
   thread?: CodexThread;
 };
 
 export type UseCodexThreadResult = {
-  client: CodexClient;
+  client: Codex;
   thread: CodexThread;
-  config: CodexThreadConfig;
-  setConfig: (update: ThreadConfigUpdate) => void;
-  restoreThread: (snapshot: ThreadSnapshot, update?: ThreadConfigUpdate) => void;
+  threadOptions: ThreadOptions;
+  setThreadOptions: (update: ThreadUpdate) => void;
+  restoreThread: (snapshot: ThreadSnapshot, update?: ThreadUpdate) => void;
   snapshot: ThreadSnapshot;
 };
 
@@ -102,7 +102,7 @@ export type UseCodexChatResult = {
   error: Error | null;
   usage: Usage | null;
   threadId: string | null;
-  config: CodexThreadConfig;
+  threadOptions: ThreadOptions;
   sendMessage: (input?: string, options?: ThreadRunOptions) => Promise<void>;
   stop: () => void;
   reload: () => Promise<void>;
@@ -111,7 +111,7 @@ export type UseCodexChatResult = {
   setReasoning: (reasoning?: ReasoningConfig) => void;
   setTools: (tools: ToolDefinition[]) => void;
   setMcpServers: (servers: McpServerDescriptor[]) => void;
-  setConfig: (update: ThreadConfigUpdate) => void;
+  setThreadOptions: (update: ThreadUpdate) => void;
   restoreSession: (session: CodexChatSessionSnapshot) => void;
   snapshotSession: () => CodexChatSessionSnapshot;
 };

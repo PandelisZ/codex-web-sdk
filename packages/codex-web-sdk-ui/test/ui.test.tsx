@@ -43,7 +43,7 @@ function createChatStub(): UseCodexChatResult {
     error: null,
     usage: null,
     threadId: "thread_1",
-    config: {
+    threadOptions: {
       model: "gpt-5.1-codex",
       reasoning: {
         effort: "medium"
@@ -57,7 +57,7 @@ function createChatStub(): UseCodexChatResult {
     setReasoning: vi.fn(),
     setTools: vi.fn(),
     setMcpServers: vi.fn(),
-    setConfig: vi.fn(),
+    setThreadOptions: vi.fn(),
     restoreSession: vi.fn(),
     snapshotSession: vi.fn()
   };

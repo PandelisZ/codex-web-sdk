@@ -93,8 +93,8 @@ async function serveIndex(response, origin) {
   const injected = html.replace(
     "</head>",
     `  <script>window.__PANDELIS_CODEX_WEB_CONFIG__ = ${JSON.stringify({
-      baseUrl: `${origin}/v1`,
-      model: "gpt-5.1-codex",
+      baseURL: `${origin}/v1`,
+      model: "gpt-5.4",
       initialInput: "Reply with exactly: PANDELIS_CODEX_WEB_OK"
     })};</script>\n</head>`
   );

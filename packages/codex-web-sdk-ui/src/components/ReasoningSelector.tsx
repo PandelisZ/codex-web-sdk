@@ -16,7 +16,7 @@ export function ReasoningSelector({
   onChange?: (value: ReasoningEffort) => void;
 }): JSX.Element {
   const chat = useChatContext();
-  const currentValue = value ?? chat.config.reasoning?.effort ?? "medium";
+  const currentValue = value ?? chat.threadOptions.reasoning?.effort ?? "medium";
 
   return (
     <label className={className} data-codex-reasoning-selector="">
@@ -31,7 +31,7 @@ export function ReasoningSelector({
           }
 
           chat.setReasoning({
-            ...(chat.config.reasoning ?? {}),
+            ...(chat.threadOptions.reasoning ?? {}),
             effort: next
           });
         }}
