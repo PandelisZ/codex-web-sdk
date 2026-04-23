@@ -5,6 +5,19 @@ on:
     branches:
       - master
       - main
+    paths:
+      - "apps/demo/**"
+      - "packages/**"
+      - "crates/**"
+      - "xtask/**"
+      - "scripts/**"
+      - "vendor/openai-codex/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/gh-pages*.yml"
+      - ".github/workflows/gh-pages*.yaml"
   workflow_dispatch:
 
 permissions:
