@@ -25,6 +25,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Initialize vendor/openai-codex
+        run: |
+          if [ ! -f vendor/openai-codex/codex-rs/Cargo.toml ]; then
+            rm -rf vendor/openai-codex
+            git clone --depth 1 https://github.com/openai/openai-codex.git vendor/openai-codex
+          fi
+          git -C vendor/openai-codex checkout $(git rev-parse HEAD:vendor/openai-codex)
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11.0.0-rc.1
