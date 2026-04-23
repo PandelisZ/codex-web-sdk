@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
@@ -50,9 +50,20 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            vendor/openai-codex/codex-rs
+          cache-all-crates: true
 
       - name: Install wasm-bindgen CLI
-        run: cargo install wasm-bindgen-cli --version 0.2.118
+        run: |
+          if command -v wasm-bindgen >/dev/null 2>&1 && \
+            wasm-bindgen --version | grep -q '0.2.118'; then
+            echo "wasm-bindgen-cli already installed"
+          else
+            cargo install wasm-bindgen-cli --version 0.2.118
+          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts

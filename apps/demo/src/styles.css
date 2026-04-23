@@ -339,9 +339,10 @@ button {
 
 .conversationHeader {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: -4px;
 }
 
 .conversationHeader h2 {
@@ -373,6 +374,8 @@ button {
 
 .conversationActions {
   justify-content: flex-end;
+  align-self: flex-start;
+  margin-top: -6px;
 }
 
 .mobileSidebarButton {
@@ -407,7 +410,7 @@ button {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 10px 0 6px;
+  padding: 6px 0 2px;
 }
 
 .transcriptPanelEmpty {
@@ -541,10 +544,10 @@ button {
 
 .composerShell {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   max-width: 960px;
   width: 100%;
-  margin: 4px auto 0;
+  margin: 0 auto 0;
   flex: 0 0 auto;
 }
 
@@ -554,6 +557,7 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding: 0;
+  margin-top: -2px;
 }
 
 .toolbarSelectors {
@@ -576,14 +580,14 @@ button {
 }
 
 .composerCard form {
-  padding: 16px;
+  padding: 12px 16px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .composerTextarea {
-  min-height: clamp(120px, 22vh, 200px);
-  max-height: min(28vh, 220px);
+  min-height: clamp(88px, 14vh, 132px);
+  max-height: min(18vh, 148px);
   resize: none;
   border: 0;
   box-shadow: none;
@@ -593,11 +597,15 @@ button {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  padding-top: 12px;
+  padding-top: 6px;
 }
 
 .overlayPane {
-  width: min(420px, calc(100vw - 40px));
+  width: min(520px, calc(100vw - 40px));
+  min-width: 360px;
+  max-width: min(700px, calc(100vw - 40px));
+  resize: horizontal;
+  overflow: auto;
 }
 
 .mobileSidebarSheet {
@@ -692,13 +700,19 @@ button {
 .toolEditorField {
   display: grid;
   gap: 6px;
+  text-transform: none;
 }
 
-.toolEditorField span {
+.toolEditorField > span {
   color: #7a7f8d;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.monacoFrame,
+.monacoFrame * {
+  text-transform: none;
 }
 
 .toolEditorActions {
