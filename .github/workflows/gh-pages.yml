@@ -3,6 +3,7 @@ name: Deploy Demo
 on:
   push:
     branches:
+      - master
       - main
   workflow_dispatch:
 
@@ -43,7 +44,7 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.118
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build workspace
         run: pnpm build
