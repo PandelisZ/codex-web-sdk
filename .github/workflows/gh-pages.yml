@@ -27,11 +27,13 @@ jobs:
 
       - name: Initialize vendor/openai-codex
         run: |
+          CODEX_SUBMODULE_SHA="$(git rev-parse HEAD:vendor/openai-codex)"
           if [ ! -f vendor/openai-codex/codex-rs/Cargo.toml ]; then
             rm -rf vendor/openai-codex
-            git clone --depth 1 https://github.com/openai/openai-codex.git vendor/openai-codex
+            git clone --depth 1 https://github.com/openai/codex.git vendor/openai-codex
+            git -C vendor/openai-codex fetch --depth 1 origin "${CODEX_SUBMODULE_SHA}"
           fi
-          git -C vendor/openai-codex checkout $(git rev-parse HEAD:vendor/openai-codex)
+          git -C vendor/openai-codex checkout "${CODEX_SUBMODULE_SHA}"
 
       - uses: pnpm/action-setup@v4
         with:
