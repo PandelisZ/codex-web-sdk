@@ -3,7 +3,13 @@
   "version": "0.1.2",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -20,12 +26,21 @@
     "./node": {
       "import": "./dist/node/index.js",
       "types": "./dist/node/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "test": "pnpm exec vitest run --root ../.. --config vitest.config.ts"
-  }
+  },
+  "keywords": [
+    "codex",
+    "openai",
+    "sdk",
+    "typescript",
+    "browser",
+    "agents"
+  ]
 }

@@ -35,7 +35,7 @@ import Codex, { toTool } from "@pandelis/codex-web-sdk";
 
 const client = new Codex({
   apiKey: process.env.OPENAI_API_KEY,
-  defaultModel: "gpt-5"
+  defaultModel: "gpt-5.4"
 });
 
 const thread = client.threads.create({
@@ -91,7 +91,7 @@ import { CodexProvider, useCodexAgent } from "@pandelis/codex-web-sdk-react";
 
 const client = new Codex({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  defaultModel: "gpt-5"
+  defaultModel: "gpt-5.4"
 });
 
 function Chat() {
@@ -136,6 +136,30 @@ The React package also exposes:
 - `useCodexChat()` for chat state and actions
 - `CodexProvider` for shared client defaults and persistence
 
+## Config Model
+
+Client-level options live on `new Codex(...)`:
+
+- `apiKey`
+- `baseURL`
+- `defaultHeaders`
+- `defaultModel`
+- `defaultReasoning`
+- `defaultInstructions`
+- `transport`
+- `fetch`
+- `wasmURL`
+
+Thread-level behavior lives on `client.threads.create(...)` and `thread.update(...)`:
+
+- `model`
+- `reasoning`
+- `instructions`
+- `tools`
+- `mcpServers`
+- `metadata`
+- `maxToolRoundtrips`
+
 ## UI Package
 
 `@pandelis/codex-web-sdk-ui` exports composable primitives:
@@ -169,6 +193,21 @@ Core entrypoints:
 - `@pandelis/codex-web-sdk/threads`: thread resource classes and types
 - `@pandelis/codex-web-sdk/mcp`: MCP registry exports
 - `@pandelis/codex-web-sdk/node`: Node runtime adapter helpers
+
+Package metadata is export-map based, so consumers should import only from these published entrypoints rather than internal source paths.
+
+## Migration
+
+The old flat helpers such as `createCodexClient()`, `startThread()`, `setConfig()`, `baseUrl`, and `systemPrompt` are no longer the primary documented surface.
+
+Use this mapping instead:
+
+- `createCodexClient(...)` -> `new Codex(...)`
+- `client.startThread(...)` -> `client.threads.create(...)`
+- `thread.setConfig(...)` -> `thread.update(...)`
+- `baseUrl` -> `baseURL`
+- `headers` -> `defaultHeaders`
+- `systemPrompt` -> `instructions`
 
 ## Local Development
 

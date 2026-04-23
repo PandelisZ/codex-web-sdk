@@ -3,13 +3,26 @@
   "version": "0.1.2",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
+  "keywords": [
+    "codex",
+    "react",
+    "hooks",
+    "sdk"
+  ],
   "publishConfig": {
     "access": "public"
   },
